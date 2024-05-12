@@ -1,0 +1,9 @@
+flask
+celery
+requests
+markdownify
+
+Flask-Discord
+pyopenssl
+GitPython
+Flask-WTF
