@@ -1,6 +1,6 @@
 import logging
 
-from utils import Client
+from taiga.utils import Client
 
 logging.basicConfig(
     level=logging.INFO,

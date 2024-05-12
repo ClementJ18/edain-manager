@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from utils import Client, status_mappings
+from taiga.utils import Client, status_mappings
 
 logging.basicConfig(
     level=logging.INFO,

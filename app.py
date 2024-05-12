@@ -14,11 +14,6 @@ from taiga.config import APP_SECRET, CLIENT_ID, CLIENT_SECRET, REPO_PATH, SECRET
 app = Flask(__name__)
 
 app.secret_key = APP_SECRET
-# OAuth2 must make use of HTTPS in production environment.
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = (
-    "true"  # !! Only in development environment.
-)
-
 app.config["DISCORD_CLIENT_ID"] = CLIENT_ID  # Discord client ID.
 app.config["DISCORD_CLIENT_SECRET"] = CLIENT_SECRET  # Discord client secret.
 

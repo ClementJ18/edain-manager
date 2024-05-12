@@ -7,3 +7,4 @@ Flask-Discord
 pyopenssl
 GitPython
 Flask-WTF
+gunicorn
