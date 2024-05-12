@@ -1,6 +1,5 @@
 import functools
 import logging
-import os
 from flask import Flask, redirect, render_template, request, Response, url_for
 import requests
 from markdownify import markdownify as md
@@ -36,6 +35,12 @@ def scope_locked(team_only: bool):
                 )
 
             member = discord.request(f"/users/@me/guilds/{GUILD_ID}/member")
+
+            if not member.get("roles"):
+                user = discord.fetch_user()
+                logging.info("User %s is not authorized", user.username)
+                raise Unauthorized
+
             is_team = TEAM_ROLE in member["roles"]
             is_beta = BETA_ROLE in member["roles"]
 
