@@ -194,14 +194,19 @@ def post_flow(is_beta: bool, version: str, candidate: str, branch: str, user: Us
 def run_flows(
     is_beta: bool,
     version: str,
-    candidate: str = None,
-    branch: str = "origin/main",
-    user: User = None,
+    candidate: str,
+    branch: str,
+    user: User,
+    flows: dict
 ):
+
     with build_lock:
         pre_flow(is_beta, version, candidate, branch, user)
 
-        build_flow(is_beta, version, candidate, branch)
-        taiga_flow(is_beta, version, candidate)
+        if flows["build"]:
+            build_flow(is_beta, version, candidate, branch)
+    
+        if flows["taiga"]:
+            taiga_flow(is_beta, version, candidate)
 
         post_flow(is_beta, version, candidate, branch, user)

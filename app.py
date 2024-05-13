@@ -175,38 +175,25 @@ def _release_creator(is_beta: bool):
     form.branch_name.data = "origin/main"
 
     if request.method == "POST" and form.validate():
+        thread = threading.Thread(
+            target=run_flows,
+            args=(
+                is_beta,
+                form.version_number.data,
+                form.candidate_number.data if is_beta else None,
+                form.branch_name.data,
+                discord.fetch_user(),
+                {"taiga": form.taiga_flow.data, "build": form.build_flow.data},
+            ),
+        )
+        thread.start()
+
         if is_beta:
-            thread = threading.Thread(
-                target=run_flows,
-                args=(
-                    is_beta,
-                    form.version_number.data,
-                    form.candidate_number.data,
-                    form.branch_name.data,
-                    discord.fetch_user(),
-                ),
-            )
-            thread.start()
-            return Response(
-                f"{form.version_number.data} Beta {form.candidate_number.data} is being created. You will receive a notification when it is done.",
-                200,
-            )
+            msg = f"{form.version_number.data} Beta {form.candidate_number.data} is being created. You will receive a notification when it is done."
         else:
-            thread = threading.Thread(
-                target=run_flows,
-                args=(
-                    is_beta,
-                    form.version_number.data,
-                    None,
-                    form.branch_name.data,
-                    discord.fetch_user(),
-                ),
-            )
-            thread.start()
-            return Response(
-                f"{form.version_number.data} Release is being created. You will receive a notification when it is done.",
-                200,
-            )
+            msg = f"{form.version_number.data} Release is being created. You will receive a notification when it is done."
+
+        return Response(response=msg, status=202)
 
     return render_template("release_creator.html", is_beta=is_beta, form=form)
 

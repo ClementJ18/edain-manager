@@ -17,6 +17,10 @@
     {% if is_beta %} {{ form.candidate_number.label }}: {{ form.candidate_number(size=20) }} {% endif %} <br> <br><br>
 
     {{ form.branch_name.label }}: <br> {{ form.branch_name }} <br> <br><br>
+
+    Flows to run<br>
+    {{ form.taiga_flow.label }}{{ form.taiga_flow }} &emsp; {{ form.build_flow.label }}{{ form.build_flow }} <br> <br> <br>
+
     <input type="submit" value="Create {% if not is_beta %} Release {% else %} Beta {% endif %}">
 </form>
  
