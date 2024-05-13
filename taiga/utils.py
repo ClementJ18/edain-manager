@@ -154,7 +154,7 @@ class Client:
         return response.json()
 
     def create_epic(self, name: str, *, status: int = None):
-        data = {"project": self.project_id, "subject": name}
+        data = {"project": self.project_id, "subject": name, "epics_order": 1, "color": "#D351CF"}
 
         if status is not None:
             data["status"] = status
