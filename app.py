@@ -1,23 +1,32 @@
 import functools
 import logging
-from flask import Flask, redirect, render_template, request, Response, url_for
-import requests
-from markdownify import markdownify as md
-from flask_discord import DiscordOAuth2Session, Unauthorized
-import git
+import threading
 
-from flows import build_flow, taiga_flow
+import git
+import requests
+from flask import Flask, Response, redirect, render_template, request, url_for
+from flask_discord import DiscordOAuth2Session, Unauthorized
+from markdownify import markdownify as md
+
+from flows import run_flows
 from forms import VersionCreatorForm
-from taiga.config import APP_SECRET, CLIENT_ID, CLIENT_SECRET, REPO_PATH, SECRET, WEBHOOK, GUILD_ID, BETA_ROLE, TEAM_ROLE
+from taiga.config import (
+    APP_SECRET,
+    BETA_ROLE,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    GUILD_ID,
+    REPO_PATH,
+    SECRET,
+    TEAM_ROLE,
+    WEBHOOK,
+)
 
 app = Flask(__name__)
 
 app.secret_key = APP_SECRET
 app.config["DISCORD_CLIENT_ID"] = CLIENT_ID  # Discord client ID.
 app.config["DISCORD_CLIENT_SECRET"] = CLIENT_SECRET  # Discord client secret.
-
-app.config["DISCORD_REDIRECT_URI"] = ""  # URL to your callback endpoint.
-app.config["DISCORD_BOT_TOKEN"] = ""
 app.url_map.strict_slashes = False
 
 discord = DiscordOAuth2Session(app)
@@ -140,42 +149,48 @@ def webhook_receiver():
     return Response(status=response.status_code, response=response.text)
 
 
-def release_creator(release: bool):
+def release_creator(is_beta: bool):
     form = VersionCreatorForm()
     repo = git.Repo(REPO_PATH)
     remote_refs = repo.remote().refs
 
     form.branch_name.choices = [branch.name for branch in remote_refs]
     form.branch_name.data = "origin/main"
-    print(form.data)
 
     if request.method == "POST" and form.validate():
-        build_flow(
-            is_beta=True,
-            version=form.version_number.data,
-            candidate=form.candidate_number.data,
-            branch=form.branch_name.data,
-        )
-        taiga_flow(
-            is_beta=True,
-            version=form.version_number.data,
-            candidate=form.candidate_number.data,
-        )
-        if not release:
+        if is_beta:
+            thread = threading.Thread(
+                target=run_flows,
+                args=(
+                    is_beta,
+                    form.version_number.data,
+                    form.candidate_number.data,
+                    form.branch_name.data,
+                ),
+            )
+            thread.start()
             return Response(
-                f"{form.version_number.data} Beta {form.candidate_number.data} created!",
+                f"{form.version_number.data} Beta {form.candidate_number.data} is being created. You will receive a notification when it is done.",
                 200,
             )
         else:
-            return Response(f"{form.version_number.data} Release created!", 200)
+            thread = threading.Thread(
+                target=run_flows,
+                args=(is_beta, form.version_number.data, None, form.branch_name.data),
+            )
+            thread.start()
+            return Response(
+                f"{form.version_number.data} Release is being created. You will receive a notification when it is done.",
+                200,
+            )
 
-    return render_template("release_creator.html", release=release, form=form)
+    return render_template("release_creator.html", is_beta=is_beta, form=form)
 
 
 @app.route("/beta", methods=["GET", "POST"])
 @scope_locked(team_only=False)
 def beta_create():
-    return release_creator(release=False)
+    return release_creator(is_beta=True)
 
 
 @app.route("/beta/download")
@@ -187,7 +202,7 @@ def beta_download():
 @app.route("/release", methods=["GET", "POST"])
 @scope_locked(team_only=True)
 def release_create():
-    return release_creator(release=True)
+    return release_creator(is_beta=False)
 
 
 @app.route("/release/download")

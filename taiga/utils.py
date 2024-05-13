@@ -1,6 +1,6 @@
 import requests
 
-from taiga.config import BASE_URL, USERNAME, PASSWORD, PROJECT_ID
+from taiga.config import BASE_URL, PASSWORD, PROJECT_ID, USERNAME
 
 status_mappings = {
     "to-do": 9301941,  # todo

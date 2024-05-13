@@ -7,17 +7,17 @@
 </head>
  
 <body>
-    <h2>Edain Mod Manager -{% if release %} Release {% else %} Beta {% endif %} Version</h2>
+    <h2>Edain Mod Manager -{% if not is_beta %} Release {% else %} Beta {% endif %} Version</h2>
  <!-- this section can be replaced by a child document -->  
 {% block body %}
  
 <form method="POST">
     {{ form.csrf_token }}
     {{ form.version_number.label }}: {{ form.version_number(size=20) }} <br><br>
-    {% if not release %} {{ form.candidate_number.label }}: {{ form.candidate_number(size=20) }} {% endif %} <br> <br><br>
+    {% if is_beta %} {{ form.candidate_number.label }}: {{ form.candidate_number(size=20) }} {% endif %} <br> <br><br>
 
     {{ form.branch_name.label }}: <br> {{ form.branch_name }} <br> <br><br>
-    <input type="submit" value="Create {% if release %} Release {% else %} Beta {% endif %}">
+    <input type="submit" value="Create {% if not is_beta %} Release {% else %} Beta {% endif %}">
 </form>
  
  

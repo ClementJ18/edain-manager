@@ -8,3 +8,6 @@ pyopenssl
 GitPython
 Flask-WTF
 gunicorn
+pandas
+pybig
+boto3
