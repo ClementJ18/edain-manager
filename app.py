@@ -234,7 +234,11 @@ def list_downloads(is_beta: bool):
         Bucket=BUCKET_NAME, Prefix="beta" if is_beta else "release"
     )
 
-    name_list = [release["Key"] for release in response["Contents"][1:]]
+    try:
+        name_list = [release["Key"] for release in response["Contents"][1:]]
+    except KeyError:
+        name_list = []
+
     return render_template("release_downloader.html", is_beta=is_beta, names=name_list)
 
 
