@@ -1,16 +1,16 @@
+import logging
 import requests
 
-from taiga.config import BASE_URL, PASSWORD, PROJECT_ID, USERNAME
+from taiga.config import BASE_URL, PASSWORD, PROJECT_ID, USERNAME, STATUS_MAPPING
 
-status_mappings = {
-    "to-do": 9301941,  # todo
-    "in-progress": 9301944,  # in progress
-    "fixed-internally": 9301945,  # fixed internally
-    "in-test": 9301946,  # in test
-    "awaiting-release": 9301947,  # awaiting release
-    "done": 9301948,  # done
-}
+status_mappings = STATUS_MAPPING
 
+def error_handler(r: requests.Response, *args, **kwargs):
+    try:
+        r.raise_for_status()
+    except Exception:
+        logging.error(r.text)
+        raise
 
 class Client:
     def __init__(
@@ -28,7 +28,7 @@ class Client:
         self.header = None
         self.session = requests.Session()
         self.session.hooks = {
-            "response": lambda r, *args, **kwargs: r.raise_for_status()
+            "response": error_handler
         }
 
     def auth(self) -> dict:
@@ -132,7 +132,7 @@ class Client:
             data["status"] = status
 
         self.session.patch(
-            self.base_url + f"/userstories/{epic_id}", headers=self.header, json=data
+            self.base_url + f"/epics/{epic_id}", headers=self.header, json=data
         )
 
     def get_story_attributes(self, story_id: int) -> dict:
@@ -152,11 +152,16 @@ class Client:
 
         return response.json()
 
-    def create_epic(self, name: str):
+    def create_epic(self, name: str, *, status: int = None):
+        data = {"project": self.project_id, "subject": name}
+
+        if status is not None:
+            data["status"] = status
+
         response = self.session.post(
-            self.base_url + f"/epics",
+            self.base_url + "/epics",
             headers=self.header,
-            data={"project": self.project_id, "subject": name},
+            data=data,
         )
 
         return response.json()

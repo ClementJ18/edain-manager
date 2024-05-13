@@ -7,17 +7,23 @@ import requests
 from flask import Flask, Response, redirect, render_template, request, url_for
 from flask_discord import DiscordOAuth2Session, Unauthorized
 from markdownify import markdownify as md
+from boto3 import Session
 
-from flows import run_flows
+from flows import run_flows, build_lock
 from forms import VersionCreatorForm
 from taiga.config import (
     APP_SECRET,
     BETA_ROLE,
+    BUCKET_NAME,
+    BUCKET_REGION,
+    CLIENT_CALLBACK,
     CLIENT_ID,
     CLIENT_SECRET,
     GUILD_ID,
     REPO_PATH,
     SECRET,
+    SPACES_KEY,
+    SPACES_SECRET,
     TEAM_ROLE,
     WEBHOOK,
 )
@@ -27,10 +33,10 @@ app = Flask(__name__)
 app.secret_key = APP_SECRET
 app.config["DISCORD_CLIENT_ID"] = CLIENT_ID  # Discord client ID.
 app.config["DISCORD_CLIENT_SECRET"] = CLIENT_SECRET  # Discord client secret.
+app.config["DISCORD_REDIRECT_URI"] = CLIENT_CALLBACK  # Discord client ID.
 app.url_map.strict_slashes = False
 
 discord = DiscordOAuth2Session(app)
-
 
 def scope_locked(team_only: bool):
     def requires_authorization(view):
@@ -46,8 +52,7 @@ def scope_locked(team_only: bool):
             member = discord.request(f"/users/@me/guilds/{GUILD_ID}/member")
 
             if not member.get("roles"):
-                user = discord.fetch_user()
-                logging.info("User %s is not authorized", user.username)
+                logging.info("User %s is not authorized", member['user']['username'])
                 raise Unauthorized
 
             is_team = TEAM_ROLE in member["roles"]
@@ -148,8 +153,13 @@ def webhook_receiver():
     response = requests.post(WEBHOOK, json=data)
     return Response(status=response.status_code, response=response.text)
 
-
 def release_creator(is_beta: bool):
+    if build_lock.locked():
+        return Response(response="Another release is currently being created, please try again later...", status=423)
+
+    return _release_creator(is_beta)
+
+def _release_creator(is_beta: bool):
     form = VersionCreatorForm()
     repo = git.Repo(REPO_PATH)
     remote_refs = repo.remote().refs
@@ -166,6 +176,7 @@ def release_creator(is_beta: bool):
                     form.version_number.data,
                     form.candidate_number.data,
                     form.branch_name.data,
+                    discord.fetch_user()
                 ),
             )
             thread.start()
@@ -176,7 +187,7 @@ def release_creator(is_beta: bool):
         else:
             thread = threading.Thread(
                 target=run_flows,
-                args=(is_beta, form.version_number.data, None, form.branch_name.data),
+                args=(is_beta, form.version_number.data, None, form.branch_name.data, discord.fetch_user()),
             )
             thread.start()
             return Response(
@@ -185,6 +196,30 @@ def release_creator(is_beta: bool):
             )
 
     return render_template("release_creator.html", is_beta=is_beta, form=form)
+
+def list_downloads(is_beta: bool):
+    session = Session()
+    client = session.client('s3', region_name=BUCKET_REGION, endpoint_url=f"https://{BUCKET_REGION}.digitaloceanspaces.com", aws_access_key_id=SPACES_KEY, aws_secret_access_key=SPACES_SECRET)
+
+    if download := request.args.get("download", None):
+        url = client.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': BUCKET_NAME,
+                'Key': download
+            },
+            ExpiresIn=1800
+        )
+
+        return redirect(url)
+
+    response = client.list_objects(
+        Bucket=BUCKET_NAME,
+        Prefix="beta" if is_beta else "release"
+    )
+
+    name_list = [release["Key"] for release in response["Contents"][1:]]
+    return render_template("release_downloader.html", is_beta=is_beta, names=name_list)
 
 
 @app.route("/beta", methods=["GET", "POST"])
@@ -196,7 +231,7 @@ def beta_create():
 @app.route("/beta/download")
 @scope_locked(team_only=True)
 def beta_download():
-    return "Beta Download Page"
+    return list_downloads(is_beta=True)
 
 
 @app.route("/release", methods=["GET", "POST"])
@@ -208,7 +243,7 @@ def release_create():
 @app.route("/release/download")
 @scope_locked(team_only=True)
 def release_download():
-    return Response("Release Download Page", 200)
+    return list_downloads(is_beta=False)
 
 
 if __name__ == "__main__":

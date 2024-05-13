@@ -2,24 +2,28 @@ import csv
 import logging
 import os
 import tarfile
+import threading
 
 import git
 import pandas
 import pyBIG
 from boto3.session import Session
+import requests
 
 from taiga.config import (
     BUCKET_NAME,
     BUCKET_REGION,
+    EPIC_STATUS_MAPPING,
     REPO_PATH,
     SPACES_KEY,
     SPACES_SECRET,
+    WEBHOOK,
 )
 from taiga.move_column import move_column
 from taiga.utils import Client, status_mappings
+from flask_discord.models import User
 
-logging.basicConfig(level=logging.ERROR)
-
+build_lock = threading.Lock()
 
 def write_string_files(data, file, columns):
     with open(file, "w+", encoding="latin-1") as f:
@@ -39,7 +43,7 @@ def generate_bug_list(client: Client, version):
         )
 
 
-def pre_flow(is_beta: bool, version: str, candidate: str, branch: str):
+def pre_flow(is_beta: bool, version: str, candidate: str, branch: str, user: dict):
     pass
 
 
@@ -75,7 +79,7 @@ def build_flow(is_beta: bool, version: str, candidate: str, branch: str):
         csv_reader = csv.DictReader(csvfile, delimiter=";")
 
         for row in csv_reader:
-            archive = pyBIG.Archive()
+            archive = pyBIG.Archive.empty()
 
             mod_path = os.path.join(REPO_PATH, row["Path"][1:])
             for content_path in row["Content"].strip().split(" "):
@@ -89,10 +93,10 @@ def build_flow(is_beta: bool, version: str, candidate: str, branch: str):
                             full_path = os.path.join(root, name)
                             file_name = full_path.replace(mod_path, "").replace(
                                 "/", "\\"
-                            )[1:]
+                            )
                             with open(full_path, "rb") as f:
                                 try:
-                                    archive.add_file(file_name, f.read())
+                                    archive.add_file(file_name[1:] if file_name.startswith("\\") else file_name, f.read())
                                 except KeyError:
                                     pass
 
@@ -100,8 +104,9 @@ def build_flow(is_beta: bool, version: str, candidate: str, branch: str):
 
     # package big files together?
     version_type = "beta" if is_beta else "release"
-    archive_name = f"{version_type}_{version}{'_' + candidate if is_beta else ''}"
-    with tarfile.open(os.path.join(REPO_PATH, archive_name), "w") as archive:
+    archive_name = f"{version_type}_{version}{'_' + candidate if is_beta else ''}.tar"
+    archive_path = os.path.join(REPO_PATH, archive_name)
+    with tarfile.open(archive_path, "w") as archive:
         for file in os.listdir(final_folder):
             archive.add(os.path.join(final_folder, file))
 
@@ -116,11 +121,15 @@ def build_flow(is_beta: bool, version: str, candidate: str, branch: str):
     )
 
     for file in os.listdir(final_folder):
+        path = os.path.join(final_folder, file)
         client.upload_file(
-            os.path.join(final_folder, version_type, file), BUCKET_NAME, file
+            path, BUCKET_NAME, f"{version_type}/{file}"
         )
+        os.remove(path)
 
-    client.upload_file(os.path.join(REPO_PATH, archive_name), BUCKET_NAME, archive_name)
+    client.upload_file(archive_path, BUCKET_NAME, archive_name)
+    os.remove(archive_path)
+
 
 
 def taiga_flow(is_beta: bool, version: str, candidate: str):
@@ -139,15 +148,13 @@ def taiga_flow(is_beta: bool, version: str, candidate: str):
             and version_tag in epic["subject"].lower()
         )
 
-        client.update_epic(epic["id"], epic["version"], status="old")
+        client.update_epic(epic["id"], epic["version"], status=EPIC_STATUS_MAPPING["old"])
     except StopIteration:
         logging.error("Could no close previous epic for %s", version_tag)
 
     # make new epic
     name = f"{version} {version_tag.title()}{' ' + candidate if is_beta else ''} Bugs"
-    new_epic = client.create_epic(name)
-
-    client.update_epic(new_epic["id"], new_epic["version"], status="current")
+    client.create_epic(name, status=EPIC_STATUS_MAPPING["current"])
 
     if is_beta:
         move_column(client, "fixed-internally", "in-test")
@@ -157,16 +164,33 @@ def taiga_flow(is_beta: bool, version: str, candidate: str):
         move_column(client, "awaiting-release", "done")
 
 
-def post_flow(is_beta: bool, version: str, candidate: str, branch: str):
-    pass
+def post_flow(is_beta: bool, version: str, candidate: str, branch: str, user: User):
+    version_tag = "Beta" if is_beta else "Release"
+    name = f"{version} {version_tag}{' ' + candidate if is_beta else ''}"
+    data = {
+        "content": None,
+        "embeds": [
+            {
+                "title": "Release Ready!",
+                "description": f"Ordered by **{user.username}**\n**{name}** is ready!",
+                "color": 5814783,
+                "fields": [],
+            }
+        ],
+        "username": "Edain Manager",
+        "attachments": [],
+    }
+
+    requests.post(WEBHOOK, json=data)
 
 
 def run_flows(
-    is_beta: bool, version: str, candidate: str = None, branch: str = "origin/main"
+    is_beta: bool, version: str, candidate: str = None, branch: str = "origin/main", user: User = None
 ):
-    pre_flow(is_beta, version, candidate, branch)
+    with build_lock:
+        pre_flow(is_beta, version, candidate, branch, user)
 
-    build_flow(is_beta, version, candidate, branch)
-    taiga_flow(is_beta, version, candidate)
+        build_flow(is_beta, version, candidate, branch)
+        taiga_flow(is_beta, version, candidate)
 
-    post_flow(is_beta, version, candidate, branch)
+        post_flow(is_beta, version, candidate, branch, user)

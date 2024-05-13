@@ -1,0 +1,26 @@
+
+<!DOCTYPE html>
+<html>
+ 
+<head>
+    <title>Edain Mod Downloader</title>
+</head>
+ 
+<body>
+    <h2>Edain Mod Downloader -{% if not is_beta %} Release {% else %} Beta {% endif %} Version</h2>
+ <!-- this section can be replaced by a child document -->  
+{% block body %}
+ 
+<ul>
+    {% for release in names %}
+      <li><a href="/{% if not is_beta %}release{% else %}beta{% endif %}/download?download={{release}}">{{release}}</a></li>
+    {% endfor %}
+</ul>
+ 
+ 
+{% endblock %}
+ 
+ 
+</body>
+ 
+</html>
