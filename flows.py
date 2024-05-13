@@ -7,8 +7,9 @@ import threading
 import git
 import pandas
 import pyBIG
-from boto3.session import Session
 import requests
+from boto3.session import Session
+from flask_discord.models import User
 
 from taiga.config import (
     BUCKET_NAME,
@@ -21,9 +22,9 @@ from taiga.config import (
 )
 from taiga.move_column import move_column
 from taiga.utils import Client, status_mappings
-from flask_discord.models import User
 
 build_lock = threading.Lock()
+
 
 def write_string_files(data, file, columns):
     with open(file, "w+", encoding="latin-1") as f:
@@ -96,7 +97,14 @@ def build_flow(is_beta: bool, version: str, candidate: str, branch: str):
                             )
                             with open(full_path, "rb") as f:
                                 try:
-                                    archive.add_file(file_name[1:] if file_name.startswith("\\") else file_name, f.read())
+                                    archive.add_file(
+                                        (
+                                            file_name[1:]
+                                            if file_name.startswith("\\")
+                                            else file_name
+                                        ),
+                                        f.read(),
+                                    )
                                 except KeyError:
                                     pass
 
@@ -122,14 +130,11 @@ def build_flow(is_beta: bool, version: str, candidate: str, branch: str):
 
     for file in os.listdir(final_folder):
         path = os.path.join(final_folder, file)
-        client.upload_file(
-            path, BUCKET_NAME, f"{version_type}/{file}"
-        )
+        client.upload_file(path, BUCKET_NAME, f"{version_type}/{file}")
         os.remove(path)
 
     client.upload_file(archive_path, BUCKET_NAME, archive_name)
     os.remove(archive_path)
-
 
 
 def taiga_flow(is_beta: bool, version: str, candidate: str):
@@ -148,7 +153,9 @@ def taiga_flow(is_beta: bool, version: str, candidate: str):
             and version_tag in epic["subject"].lower()
         )
 
-        client.update_epic(epic["id"], epic["version"], status=EPIC_STATUS_MAPPING["old"])
+        client.update_epic(
+            epic["id"], epic["version"], status=EPIC_STATUS_MAPPING["old"]
+        )
     except StopIteration:
         logging.error("Could no close previous epic for %s", version_tag)
 
@@ -185,7 +192,11 @@ def post_flow(is_beta: bool, version: str, candidate: str, branch: str, user: Us
 
 
 def run_flows(
-    is_beta: bool, version: str, candidate: str = None, branch: str = "origin/main", user: User = None
+    is_beta: bool,
+    version: str,
+    candidate: str = None,
+    branch: str = "origin/main",
+    user: User = None,
 ):
     with build_lock:
         pre_flow(is_beta, version, candidate, branch, user)

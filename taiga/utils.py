@@ -1,9 +1,11 @@
 import logging
+
 import requests
 
-from taiga.config import BASE_URL, PASSWORD, PROJECT_ID, USERNAME, STATUS_MAPPING
+from taiga.config import BASE_URL, PASSWORD, PROJECT_ID, STATUS_MAPPING, USERNAME
 
 status_mappings = STATUS_MAPPING
+
 
 def error_handler(r: requests.Response, *args, **kwargs):
     try:
@@ -11,6 +13,7 @@ def error_handler(r: requests.Response, *args, **kwargs):
     except Exception:
         logging.error(r.text)
         raise
+
 
 class Client:
     def __init__(
@@ -27,9 +30,7 @@ class Client:
 
         self.header = None
         self.session = requests.Session()
-        self.session.hooks = {
-            "response": error_handler
-        }
+        self.session.hooks = {"response": error_handler}
 
     def auth(self) -> dict:
         response = self.session.post(
