@@ -6,7 +6,7 @@ import git
 import requests
 from boto3 import Session
 from flask import Flask, Response, redirect, render_template, request, url_for
-from flask_discord import DiscordOAuth2Session, Unauthorized
+from flask_discord import DiscordOAuth2Session
 from markdownify import markdownify as md
 
 from flows import build_lock, run_flows
@@ -52,9 +52,10 @@ def scope_locked(team_only: bool):
 
             member = discord.request(f"/users/@me/guilds/{GUILD_ID}/member")
 
+            response = Response(response="You are not welcome here!", status=403)
             if not member.get("roles"):
                 logging.info("User %s is not authorized", member["user"]["username"])
-                raise Unauthorized
+                return response
 
             is_team = TEAM_ROLE in member["roles"]
             is_beta = BETA_ROLE in member["roles"]
@@ -67,9 +68,9 @@ def scope_locked(team_only: bool):
             )
 
             if is_beta and team_only:
-                raise Unauthorized
+                raise response
             elif not is_team and not is_beta:
-                raise Unauthorized
+                raise response
 
             return view(*args, **kwargs)
 
