@@ -3,6 +3,7 @@ import logging
 import os
 import tarfile
 import threading
+import traceback
 
 import git
 import pandas
@@ -48,10 +49,10 @@ def pre_flow(is_beta: bool, version: str, candidate: str, branch: str, user: dic
     pass
 
 
-def build_flow(is_beta: bool, version: str, candidate: str, branch: str):
+def build_flow(is_beta: bool, version: str, candidate: str, checkout_target: str):
     # checkout branch and pull
     repo = git.Repo(REPO_PATH)
-    repo.git.checkout(branch)
+    repo.git.checkout(checkout_target)
 
     # rebuild strings
     file_path = os.path.join(REPO_PATH, "_mod/Lotr.csv")
@@ -190,21 +191,56 @@ def post_flow(is_beta: bool, version: str, candidate: str, branch: str, user: Us
 
     requests.post(WEBHOOK, json=data)
 
+def error_flow(is_beta: bool, version: str, candidate: str, error: Exception):
+    version_tag = "Beta" if is_beta else "Release"
+    name = f"{version} {version_tag}{' ' + candidate if is_beta else ''}"
+    data = {
+        "content": None,
+        "embeds": [
+            {
+                "title": "Error!",
+                "description": f"Failed to build **{name}**\n```py\n{traceback.format_exception(error, limit=2)}\n```",
+                "color": 5814783,
+                "fields": [],
+            }
+        ],
+        "username": "Edain Manager",
+        "attachments": [],
+    }
+
+    logging.exception('Failed to build %s', name)
+    requests.post(WEBHOOK, json=data)
+
 
 def run_flows(
     is_beta: bool,
     version: str,
     candidate: str,
-    branch: str,
     user: User,
-    flows: dict
+    flows: dict,
+    branch: str,
+    commit: str,
 ):
 
     with build_lock:
+        try: 
+            _run_flows(is_beta, version, candidate, user, flows, branch, commit)
+        except Exception as e:
+            error_flow(is_beta, version, candidate, e)
+
+def _run_flows(
+    is_beta: bool,
+    version: str,
+    candidate: str,
+    user: User,
+    flows: dict,
+    branch: str,
+    commit: str,
+):
         pre_flow(is_beta, version, candidate, branch, user)
 
         if flows["build"]:
-            build_flow(is_beta, version, candidate, branch)
+            build_flow(is_beta, version, candidate, commit or branch)
     
         if flows["taiga"]:
             taiga_flow(is_beta, version, candidate)

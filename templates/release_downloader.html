@@ -9,19 +9,38 @@ Edain Mod Downloader
 <div class="formbold-main-wrapper">
     <div class="formbold-form-wrapper">
         <div class="formbold-form-title">
-            <h2 class="">Edain Mod Manager</h2>
+            <h2 class="">Edain Mod Downloader</h2>
                 <p>
                 Select the release or individual files you want to download from here.
             </p>
-        </div><br><br>
+        </div>
 
-        {% if names %}
-            <ul>
-                {% for release in names %}
-                <li><a href="/{% if not is_beta %}release{% else %}beta{% endif %}/download?download={{release}}">{{release}}</a></li>
-                {% endfor %}
-            </ul>
+        {% if releases and files %}
+            <div class="side-by-side">
+                <div>
+                    <label class="formbold-form-label formbold-form-label-2">
+                        Releases
+                    </label>
+                    <ul>
+                        {% for release in releases %}
+                        <li><a href="/{% if not is_beta %}release{% else %}beta{% endif %}/download?download={{release}}">{{release}}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+
+                <div>
+                    <label class="formbold-form-label formbold-form-label-2">
+                        Individual Files
+                    </label>
+                    <ul>
+                        {% for file in files %}
+                        <li><a href="/{% if not is_beta %}release{% else %}beta{% endif %}/download?download={{file}}">{{file}}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
         {% else %}
+            <br> <br>
             <p>Nothing to see here, for now...</p>
         {% endif %}
     </div>

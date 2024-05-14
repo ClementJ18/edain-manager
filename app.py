@@ -19,6 +19,7 @@ from taiga.config import (
     CLIENT_CALLBACK,
     CLIENT_ID,
     CLIENT_SECRET,
+    DEBUG,
     GUILD_ID,
     REPO_PATH,
     SECRET,
@@ -43,6 +44,9 @@ def scope_locked(team_only: bool):
     def requires_authorization(view):
         @functools.wraps(view)
         def wrapper(*args, **kwargs):
+            if DEBUG:
+                return view(*args, **kwargs)
+
             if not discord.authorized:
                 return discord.create_session(
                     scope=["identify", "guilds", "guilds.members.read"],
@@ -181,9 +185,10 @@ def _release_creator(is_beta: bool):
                 is_beta,
                 form.version_number.data,
                 form.candidate_number.data if is_beta else None,
-                form.branch_name.data,
                 discord.fetch_user(),
                 {"taiga": form.taiga_flow.data, "build": form.build_flow.data},
+                form.branch_name.data,
+                form.commit_sha.data,
             ),
         )
         thread.start()
@@ -217,8 +222,9 @@ def list_downloads(is_beta: bool):
 
         return redirect(url)
 
+    version_tag = "beta" if is_beta else "release"
     response = client.list_objects(
-        Bucket=BUCKET_NAME, Prefix="beta" if is_beta else "release"
+        Bucket=BUCKET_NAME, Prefix=version_tag
     )
 
     try:
@@ -226,7 +232,15 @@ def list_downloads(is_beta: bool):
     except KeyError:
         name_list = []
 
-    return render_template("release_downloader.html", is_beta=is_beta, names=name_list)
+    releases = []
+    files = []
+    for name in name_list:
+        if name.startswith(f"{version_tag}/"):
+            files.append(name)
+        else:
+            releases.append(name)
+
+    return render_template("release_downloader.html", is_beta=is_beta, releases=releases, files=files)
 
 
 @app.route("/beta", methods=["GET", "POST"])

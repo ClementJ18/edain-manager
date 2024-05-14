@@ -33,13 +33,19 @@
             {% endif %}
           </div>
   
-          <div class="formbold-input-group">
-            {{ form.branch_name.label(class_="formbold-form-label") }}
-            {{ form.branch_name(class_="formbold-form-select") }}
-          </div>
+            <div class="formbold-input-flex">
+                <div>
+                    {{ form.branch_name(class_="formbold-form-select") }}
+                    {{ form.branch_name.label(class_="formbold-form-label") }}
+                </div>
+                <div>
+                    {{ form.commit_sha(class_="formbold-form-input") }}
+                    {{ form.commit_sha.label(class_="formbold-form-label") }}
+                </div>
+            </div>
   
           <label for="email" class="formbold-form-label"> Select flows to run </label>
-          <div class="formbold-input-flex">
+          <div>
             <div class="formbold-checkbox-wrapper">
                 <label for="supportCheckbox" class="formbold-checkbox-label">
                 <div class="formbold-relative">
