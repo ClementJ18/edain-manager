@@ -1,33 +1,67 @@
 
-<!DOCTYPE html>
-<html>
- 
-<head>
-    <title>Edain Mod Manager</title>
-</head>
- 
-<body>
-    <h2>Edain Mod Manager -{% if not is_beta %} Release {% else %} Beta {% endif %} Version</h2>
- <!-- this section can be replaced by a child document -->  
-{% block body %}
- 
-<form method="POST">
-    {{ form.csrf_token }}
-    {{ form.version_number.label }}: {{ form.version_number(size=20) }} <br><br>
-    {% if is_beta %} {{ form.candidate_number.label }}: {{ form.candidate_number(size=20) }} {% endif %} <br> <br><br>
+{% extends 'base.html' %}
 
-    {{ form.branch_name.label }}: <br> {{ form.branch_name }} <br> <br><br>
-
-    Flows to run<br>
-    {{ form.taiga_flow.label }}{{ form.taiga_flow }} &emsp; {{ form.build_flow.label }}{{ form.build_flow }} <br> <br> <br>
-
-    <input type="submit" value="Create {% if not is_beta %} Release {% else %} Beta {% endif %}">
-</form>
- 
- 
+{% block title %}
+    Edain Mod Manager
 {% endblock %}
- 
- 
-</body>
- 
-</html>
+
+{% block content %}
+<div class="formbold-main-wrapper">
+    <!-- Author: FormBold Team -->
+    <!-- Learn More: https://formbold.com -->
+    <form action="https://formbold.com/s/FORM_ID" method="POST">
+    <div class="formbold-form-wrapper">
+        <div class="formbold-form-title">
+            <h2 class="">Edain Mod Manager</h2>
+                <p>
+                Use this form to start the build process for a beta or release.
+              </p>
+          </div><br><br>
+
+        <form method="POST">
+            {{ form.csrf_token }}
+          <div class="formbold-input-flex">
+            <div>
+                {{ form.version_number(size=20, class_="formbold-form-input") }}
+                {{ form.version_number.label(class_="formbold-form-label") }}
+            </div>
+            {% if is_beta %}
+                <div>
+                    {{ form.candidate_number(size=20, class_="formbold-form-input") }}
+                    {{ form.candidate_number.label(class_="formbold-form-label") }}
+                </div>
+            {% endif %}
+          </div>
+  
+          <div class="formbold-input-group">
+            {{ form.branch_name.label(class_="formbold-form-label") }}
+            {{ form.branch_name(class_="formbold-form-select") }}
+          </div>
+  
+          <label for="email" class="formbold-form-label"> Select flows to run </label>
+          <div class="formbold-input-flex">
+            <div class="formbold-checkbox-wrapper">
+                <label for="supportCheckbox" class="formbold-checkbox-label">
+                <div class="formbold-relative">
+                    {{ form.taiga_flow(class_="formbold-input-checkbox") }}
+                </div>
+                {{ form.taiga_flow.label.text }}
+                </label>
+            </div>
+
+            <div class="formbold-checkbox-wrapper">
+                <label for="supportCheckbox" class="formbold-checkbox-label">
+                <div class="formbold-relative">
+                    {{ form.build_flow(class_="formbold-input-checkbox") }}
+                </div>
+                {{ form.build_flow.label.text }}
+                </label>
+            </div>
+           </div>
+          
+          <input type="submit" class="formbold-btn" value="Create {% if not is_beta %} Release {% else %} Beta {% endif %}">
+      </form>
+    </div>
+  </div>
+{% endblock %}
+

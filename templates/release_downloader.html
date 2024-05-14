@@ -1,30 +1,30 @@
 
-<!DOCTYPE html>
-<html>
- 
-<head>
-    <title>Edain Mod Downloader</title>
-</head>
- 
-<body>
-    <h2>Edain Mod Downloader -{% if not is_beta %} Release {% else %} Beta {% endif %} Version</h2>
- <!-- this section can be replaced by a child document -->  
-{% block body %}
+{% extends 'base.html' %}
 
-{% if names %}
-    <ul>
-        {% for release in names %}
-        <li><a href="/{% if not is_beta %}release{% else %}beta{% endif %}/download?download={{release}}">{{release}}</a></li>
-        {% endfor %}
-    </ul>
-{% else %}
-    <p>Nothing to see here, for now...</p>
-{% endif %}
- 
- 
+{% block title %}
+Edain Mod Downloader
 {% endblock %}
- 
- 
-</body>
- 
-</html>
+
+{% block content %}
+<div class="formbold-main-wrapper">
+    <div class="formbold-form-wrapper">
+        <div class="formbold-form-title">
+            <h2 class="">Edain Mod Manager</h2>
+                <p>
+                Select the release or individual files you want to download from here.
+            </p>
+        </div><br><br>
+
+        {% if names %}
+            <ul>
+                {% for release in names %}
+                <li><a href="/{% if not is_beta %}release{% else %}beta{% endif %}/download?download={{release}}">{{release}}</a></li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>Nothing to see here, for now...</p>
+        {% endif %}
+    </div>
+  </div>
+{% endblock %}
+
