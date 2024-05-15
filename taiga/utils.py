@@ -126,11 +126,14 @@ class Client:
             self.base_url + f"/userstories/{us_id}", headers=self.header, json=data
         )
 
-    def update_epic(self, epic_id: int, version: int, *, status: str = None):
+    def update_epic(self, epic_id: int, version: int, *, status: str = None, order: str = None):
         data = {"version": version}
 
         if status is not None:
             data["status"] = status
+
+        if order is not None:
+            data["epics_order"] = order
 
         self.session.patch(
             self.base_url + f"/epics/{epic_id}", headers=self.header, json=data
@@ -154,7 +157,12 @@ class Client:
         return response.json()
 
     def create_epic(self, name: str, *, status: int = None):
-        data = {"project": self.project_id, "subject": name, "epics_order": 1, "color": "#D351CF"}
+        data = {
+            "project": self.project_id,
+            "subject": name,
+            "epics_order": 1,
+            "color": "#D351CF",
+        }
 
         if status is not None:
             data["status"] = status

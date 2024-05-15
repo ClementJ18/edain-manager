@@ -146,23 +146,30 @@ def taiga_flow(is_beta: bool, version: str, candidate: str):
     epics = client.list_epics()
 
     version_tag = "beta" if is_beta else "release"
-    try:
-        epic = next(
-            epic
-            for epic in epics
-            if epic["status_extra_info"]["name"] == "Current"
-            and version_tag in epic["subject"].lower()
-        )
-
-        client.update_epic(
-            epic["id"], epic["version"], status=EPIC_STATUS_MAPPING["old"]
-        )
-    except StopIteration:
-        logging.error("Could no close previous epic for %s", version_tag)
-
-    # make new epic
     name = f"{version} {version_tag.title()}{' ' + candidate if is_beta else ''} Bugs"
-    client.create_epic(name, status=EPIC_STATUS_MAPPING["current"])
+
+    # no need to recreate an existing epic
+    if not any(name in epic["subject"] for epic in epics):
+        try:
+            epic = next(
+                epic
+                for epic in epics
+                if epic["status_extra_info"]["name"] == "Current"
+                and version_tag in epic["subject"].lower()
+            )
+
+            client.update_epic(
+                epic["id"], epic["version"], status=EPIC_STATUS_MAPPING["old"], order="3"
+            )
+        except StopIteration:
+            logging.error("Could not close previous epic for %s", version_tag)
+
+        # make new epic
+        client.create_epic(name, status=EPIC_STATUS_MAPPING["current"])
+    else:
+        logging.info(
+            "Skipping epic creation because duplicate already exists for %s", name
+        )
 
     if is_beta:
         move_column(client, "fixed-internally", "in-test")
@@ -191,6 +198,7 @@ def post_flow(is_beta: bool, version: str, candidate: str, branch: str, user: Us
 
     requests.post(WEBHOOK, json=data)
 
+
 def error_flow(is_beta: bool, version: str, candidate: str, error: Exception):
     version_tag = "Beta" if is_beta else "Release"
     name = f"{version} {version_tag}{' ' + candidate if is_beta else ''}"
@@ -208,7 +216,7 @@ def error_flow(is_beta: bool, version: str, candidate: str, error: Exception):
         "attachments": [],
     }
 
-    logging.exception('Failed to build %s', name)
+    logging.exception("Failed to build %s", name)
     requests.post(WEBHOOK, json=data)
 
 
@@ -223,10 +231,11 @@ def run_flows(
 ):
 
     with build_lock:
-        try: 
+        try:
             _run_flows(is_beta, version, candidate, user, flows, branch, commit)
         except Exception as e:
             error_flow(is_beta, version, candidate, e)
+
 
 def _run_flows(
     is_beta: bool,
@@ -237,12 +246,12 @@ def _run_flows(
     branch: str,
     commit: str,
 ):
-        pre_flow(is_beta, version, candidate, branch, user)
+    pre_flow(is_beta, version, candidate, branch, user)
 
-        if flows["build"]:
-            build_flow(is_beta, version, candidate, commit or branch)
-    
-        if flows["taiga"]:
-            taiga_flow(is_beta, version, candidate)
+    if flows["build"]:
+        build_flow(is_beta, version, candidate, commit or branch)
 
-        post_flow(is_beta, version, candidate, branch, user)
+    if flows["taiga"]:
+        taiga_flow(is_beta, version, candidate)
+
+    post_flow(is_beta, version, candidate, branch, user)

@@ -7,6 +7,7 @@ import requests
 from boto3 import Session
 from flask import Flask, Response, redirect, render_template, request, url_for
 from flask_discord import DiscordOAuth2Session
+from flask_discord.exceptions import RateLimited
 from markdownify import markdownify as md
 
 from flows import build_lock, run_flows
@@ -54,11 +55,18 @@ def scope_locked(team_only: bool):
                     data={"next": request.endpoint},
                 )
 
-            member = discord.request(f"/users/@me/guilds/{GUILD_ID}/member")
+            try:
+                member = discord.request(f"/users/@me/guilds/{GUILD_ID}/member")
+            except RateLimited:
+                return render_template("message.html", message="Currently being ratelimited, please try again later", status=429), 429
 
-            response = Response(response="You are not welcome here!", status=403)
+            response = (
+                render_template(
+                    "message.html", message="You are not welcome here!", status=403
+                ),
+                403,
+            )
             if not member.get("roles"):
-                logging.info("User %s is not authorized", member["user"]["username"])
                 return response
 
             is_team = TEAM_ROLE in member["roles"]
@@ -94,7 +102,7 @@ def login():
 
 @app.route("/")
 def index():
-    return Response("Go away.", status=418)
+    return render_template("message.html", message="Go away.", status=418), 418
 
 
 @app.route(f"/webhook/{SECRET}", methods=["POST"])
@@ -162,9 +170,13 @@ def webhook_receiver():
 
 def release_creator(is_beta: bool):
     if build_lock.locked():
-        return Response(
-            response="Another release is currently being created, please try again later...",
-            status=423,
+        return (
+            render_template(
+                "message.html",
+                message="Another release is currently being created, please try again later...",
+                status=423,
+            ),
+            423,
         )
 
     return _release_creator(is_beta)
@@ -198,7 +210,7 @@ def _release_creator(is_beta: bool):
         else:
             msg = f"{form.version_number.data} Release is being created. You will receive a notification when it is done."
 
-        return Response(response=msg, status=202)
+        return render_template("message.html", message=msg, status=202), 202
 
     return render_template("release_creator.html", is_beta=is_beta, form=form)
 
@@ -223,9 +235,7 @@ def list_downloads(is_beta: bool):
         return redirect(url)
 
     version_tag = "beta" if is_beta else "release"
-    response = client.list_objects(
-        Bucket=BUCKET_NAME, Prefix=version_tag
-    )
+    response = client.list_objects(Bucket=BUCKET_NAME, Prefix=version_tag)
 
     try:
         name_list = [release["Key"] for release in response["Contents"][1:]]
@@ -240,7 +250,9 @@ def list_downloads(is_beta: bool):
         else:
             releases.append(name)
 
-    return render_template("release_downloader.html", is_beta=is_beta, releases=releases, files=files)
+    return render_template(
+        "release_downloader.html", is_beta=is_beta, releases=releases, files=files
+    )
 
 
 @app.route("/beta", methods=["GET", "POST"])

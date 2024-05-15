@@ -2,14 +2,14 @@
 {% extends 'base.html' %}
 
 {% block title %}
-    Edain Mod Manager
+    Edain Mod Manager - {% if is_beta %} Beta {% else %} Release {% endif %} Version
 {% endblock %}
 
 {% block content %}
 <div class="formbold-main-wrapper">
     <!-- Author: FormBold Team -->
     <!-- Learn More: https://formbold.com -->
-    <form action="https://formbold.com/s/FORM_ID" method="POST">
+    <form method="POST">
     <div class="formbold-form-wrapper">
         <div class="formbold-form-title">
             <h2 class="">Edain Mod Manager</h2>
@@ -18,8 +18,7 @@
               </p>
           </div><br><br>
 
-        <form method="POST">
-            {{ form.csrf_token }}
+          {{ form.csrf_token }}
           <div class="formbold-input-flex">
             <div>
                 {{ form.version_number(size=20, class_="formbold-form-input") }}
@@ -47,20 +46,20 @@
           <label for="email" class="formbold-form-label"> Select flows to run </label>
           <div>
             <div class="formbold-checkbox-wrapper">
-                <label for="supportCheckbox" class="formbold-checkbox-label">
+                <label for="supportCheckbox" class="formbold-checkbox-label" for="build_box">
                 <div class="formbold-relative">
-                    {{ form.taiga_flow(class_="formbold-input-checkbox") }}
+                    {{ form.build_flow(class_="formbold-input-checkbox", id="build_box") }}
                 </div>
-                {{ form.taiga_flow.label.text }}
+                {{ form.build_flow.label.text }}
                 </label>
             </div>
 
             <div class="formbold-checkbox-wrapper">
-                <label for="supportCheckbox" class="formbold-checkbox-label">
+                <label for="supportCheckbox" class="formbold-checkbox-label" for="taiga_box">
                 <div class="formbold-relative">
-                    {{ form.build_flow(class_="formbold-input-checkbox") }}
+                    {{ form.taiga_flow(class_="formbold-input-checkbox", id="taiga_box") }}
                 </div>
-                {{ form.build_flow.label.text }}
+                {{ form.taiga_flow.label.text }}
                 </label>
             </div>
            </div>
