@@ -1,5 +1,7 @@
 import functools
 import logging
+import math
+from operator import itemgetter
 import threading
 
 import git
@@ -187,8 +189,14 @@ def _release_creator(is_beta: bool):
     repo = git.Repo(REPO_PATH)
     remote_refs = repo.remote().refs
 
-    form.branch_name.choices = [branch.name for branch in remote_refs]
+    branches = [branch.name for branch in remote_refs]
+    form.branch_name.choices = branches
     form.branch_name.data = "origin/main"
+
+    commit_dict = {
+        branch: " - ".join([x.strip() for x in itemgetter(2, 4)(repo.git.log(branch, n=1).splitlines()) ])
+        for branch in branches
+    }
 
     if request.method == "POST" and form.validate():
         thread = threading.Thread(
@@ -212,7 +220,17 @@ def _release_creator(is_beta: bool):
 
         return render_template("message.html", message=msg, status=202), 202
 
-    return render_template("release_creator.html", is_beta=is_beta, form=form)
+    return render_template("release_creator.html", is_beta=is_beta, form=form, commits=commit_dict)
+
+def humanize_bytes(size_bytes: int):
+    if size_bytes == 0:
+        return "0B"
+
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return "%s %s" % (s, size_name[i])
 
 
 def list_downloads(is_beta: bool):
@@ -238,14 +256,14 @@ def list_downloads(is_beta: bool):
     response = client.list_objects(Bucket=BUCKET_NAME, Prefix=version_tag)
 
     try:
-        name_list = [release["Key"] for release in response["Contents"][1:]]
+        name_list = [(release["Key"], release["LastModified"].strftime("%Y-%m-%d %H:%M"), humanize_bytes(release["Size"])) for release in response["Contents"][1:]]
     except KeyError:
         name_list = []
 
     releases = []
     files = []
     for name in name_list:
-        if name.startswith(f"{version_tag}/"):
+        if name[0].startswith(f"{version_tag}/"):
             files.append(name)
         else:
             releases.append(name)

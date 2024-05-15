@@ -6,6 +6,16 @@
 {% endblock %}
 
 {% block content %}
+<script>
+    var data = {
+        {% for branch, text in commits.items() %} "{{branch}}": "{{text}}", {% endfor %}
+    };
+
+    function changeText(id) {
+        document.getElementById("content").innerText = data[id];
+    }
+</script>
+
 <div class="formbold-main-wrapper">
     <!-- Author: FormBold Team -->
     <!-- Learn More: https://formbold.com -->
@@ -34,7 +44,7 @@
   
             <div class="formbold-input-flex">
                 <div>
-                    {{ form.branch_name(class_="formbold-form-select") }}
+                    {{ form.branch_name(class_="formbold-form-select", onchange="changeText(this.value);") }}
                     {{ form.branch_name.label(class_="formbold-form-label") }}
                 </div>
                 <div>
@@ -43,28 +53,37 @@
                 </div>
             </div>
   
-          <label for="email" class="formbold-form-label"> Select flows to run </label>
-          <div>
-            <div class="formbold-checkbox-wrapper">
-                <label for="supportCheckbox" class="formbold-checkbox-label" for="build_box">
-                <div class="formbold-relative">
-                    {{ form.build_flow(class_="formbold-input-checkbox", id="build_box") }}
+            <div class="side-by-side">
+                <div id="content" class="formbold-form-input">
+                    {{ commits["origin/main"] }}
                 </div>
-                {{ form.build_flow.label.text }}
-                </label>
-            </div>
+                <div>
+                    <div>
+                        <label class="formbold-form-label"> Select flows to run </label>
+                        <div class="formbold-checkbox-wrapper">
+                            <label class="formbold-checkbox-label" for="build_box">
+                            <div class="formbold-relative">
+                                {{ form.build_flow(class_="formbold-input-checkbox", id="build_box") }}
+                            </div>
+                            {{ form.build_flow.label.text }}
+                            </label>
+                        </div>
 
-            <div class="formbold-checkbox-wrapper">
-                <label for="supportCheckbox" class="formbold-checkbox-label" for="taiga_box">
-                <div class="formbold-relative">
-                    {{ form.taiga_flow(class_="formbold-input-checkbox", id="taiga_box") }}
+                        <div class="formbold-checkbox-wrapper">
+                            <label class="formbold-checkbox-label" for="taiga_box">
+                            <div class="formbold-relative">
+                                {{ form.taiga_flow(class_="formbold-input-checkbox", id="taiga_box") }}
+                            </div>
+                            {{ form.taiga_flow.label.text }}
+                            </label>
+                        </div>
+                    </div>
                 </div>
-                {{ form.taiga_flow.label.text }}
-                </label>
             </div>
-           </div>
+          
           
           <input type="submit" class="formbold-btn" value="Create {% if not is_beta %} Release {% else %} Beta {% endif %}">
+
       </form>
     </div>
   </div>

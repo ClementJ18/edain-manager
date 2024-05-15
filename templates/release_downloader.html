@@ -23,7 +23,9 @@ Edain Mod Downloader
                     </label>
                     <ul>
                         {% for release in releases %}
-                        <li><a href="/{% if not is_beta %}release{% else %}beta{% endif %}/download?download={{release}}">{{release}}</a></li>
+                        <li>
+                            <a href="/{% if not is_beta %}release{% else %}beta{% endif %}/download?download={{release[0]}}" title="{{release[1]}}">{{release[0]}} ({{release[2]}})</a>
+                        </li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -34,7 +36,9 @@ Edain Mod Downloader
                     </label>
                     <ul>
                         {% for file in files %}
-                        <li><a href="/{% if not is_beta %}release{% else %}beta{% endif %}/download?download={{file}}">{{file}}</a></li>
+                        <li>
+                            <a href="/{% if not is_beta %}release{% else %}beta{% endif %}/download?download={{file[0]}}" title="{{file[1]}}">{{file[0]}} ({{file[2]}})</a>
+                        </li>
                         {% endfor %}
                     </ul>
                 </div>
