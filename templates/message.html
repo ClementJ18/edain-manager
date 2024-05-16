@@ -13,11 +13,17 @@
         <div class="formbold-form-title">
             <h2 class="">Edain Mod Manager</h2>
                 <p>
-                Use this form to start the build process for a beta or release.
+                The best way to create and share Edain releases
               </p>
           </div><br><br>
 
           <p>{{ message }}</p>
+
+          {% if logs %}
+            <br> <br>
+            <h3>Current Progress</h3>
+            <p style="white-space: pre-wrap;">{{logs}}</p>
+          {% endif %}
     </div>
   </div>
 {% endblock %}

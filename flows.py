@@ -1,7 +1,8 @@
 import csv
 import logging
 import os
-import tarfile
+import queue
+import zipfile
 import threading
 import traceback
 
@@ -25,6 +26,7 @@ from taiga.move_column import move_column
 from taiga.utils import Client, status_mappings
 
 build_lock = threading.Lock()
+RELEASE_LOG_FILE = "release_log.txt"
 
 
 def write_string_files(data, file, columns):
@@ -44,17 +46,24 @@ def generate_bug_list(client: Client, version):
             + "\n".join([story["subject"] for story in stories])
         )
 
+def log_line(string):
+    with open(RELEASE_LOG_FILE, "a+") as f:
+        f.write(f"{string}\n")
 
 def pre_flow(is_beta: bool, version: str, candidate: str, branch: str, user: dict):
-    pass
-
+    try:
+        os.remove(RELEASE_LOG_FILE)
+    except Exception:
+        pass
 
 def build_flow(is_beta: bool, version: str, candidate: str, checkout_target: str):
     # checkout branch and pull
+    log_line(f"Checking out {checkout_target}")
     repo = git.Repo(REPO_PATH)
     repo.git.checkout(checkout_target)
 
     # rebuild strings
+    log_line("Building strings")
     file_path = os.path.join(REPO_PATH, "_mod/Lotr.csv")
     data = pandas.read_csv(
         file_path, delimiter=";", keep_default_na=False, encoding="latin-1"
@@ -73,6 +82,7 @@ def build_flow(is_beta: bool, version: str, candidate: str, checkout_target: str
     # rebuild asset?
 
     # build .big files
+    log_line("Building big files")
     config = os.path.join(
         REPO_PATH, "tools/mod-starter/assets/final_big_builder_config.csv"
     )
@@ -110,14 +120,19 @@ def build_flow(is_beta: bool, version: str, candidate: str, checkout_target: str
                                     pass
 
             archive.save(os.path.join(final_folder, row["Name"]))
+            log_line(f"Built {row['Name']}")
 
-    # package big files together?
+    # package big files together
+    log_line("Uploading release")
     version_type = "beta" if is_beta else "release"
     archive_name = f"{version_type}_{version}{'_' + candidate if is_beta else ''}.tar"
     archive_path = os.path.join(REPO_PATH, archive_name)
-    with tarfile.open(archive_path, "w") as archive:
+    asset_path = os.path.join(REPO_PATH, "complete_asset", "asset.dat")
+    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for file in os.listdir(final_folder):
-            archive.add(os.path.join(final_folder, file))
+            archive.write(os.path.join(final_folder, file), arcname=file)
+
+        archive.write(asset_path, arcname="asset.dat")
 
     # upload to storage
     session = Session()
@@ -129,13 +144,26 @@ def build_flow(is_beta: bool, version: str, candidate: str, checkout_target: str
         aws_secret_access_key=SPACES_SECRET,
     )
 
-    for file in os.listdir(final_folder):
-        path = os.path.join(final_folder, file)
-        client.upload_file(path, BUCKET_NAME, f"{version_type}/{file}")
-        os.remove(path)
-
     client.upload_file(archive_path, BUCKET_NAME, archive_name)
     os.remove(archive_path)
+
+    log_line("Uploading individual files")
+    for file in os.listdir(final_folder):
+        path = os.path.join(final_folder, file)
+        archive_name = f"{path}.tar"
+        with zipfile.ZipFile(archive_name, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+            archive.write(path, arcname=file)
+            
+        client.upload_file(archive_name, BUCKET_NAME, f"{version_type}/{file}.tar")
+        os.remove(path)
+        os.remove(archive_name)
+
+    asset_archive_path = os.path.join(final_folder, "asset.tar")
+    with zipfile.ZipFile(asset_archive_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        archive.write(asset_path, arcname="asset.dat")
+
+    client.upload_file(asset_archive_path, BUCKET_NAME, f"{version_type}/asset.tar")
+    os.remove(asset_archive_path)
 
 
 def taiga_flow(is_beta: bool, version: str, candidate: str):
@@ -149,6 +177,7 @@ def taiga_flow(is_beta: bool, version: str, candidate: str):
     name = f"{version} {version_tag.title()}{' ' + candidate if is_beta else ''} Bugs"
 
     # no need to recreate an existing epic
+    log_line("Closing previous epic and creating new one")
     if not any(name in epic["subject"] for epic in epics):
         try:
             epic = next(
@@ -172,14 +201,17 @@ def taiga_flow(is_beta: bool, version: str, candidate: str):
         )
 
     if is_beta:
+        log_line("Moving tickets from fixed-internally to in-test")
         move_column(client, "fixed-internally", "in-test")
     else:
         # generate bug list
+        log_line("Moving tickets from awaiting-release to done")
         generate_bug_list(client, version)
         move_column(client, "awaiting-release", "done")
 
 
 def post_flow(is_beta: bool, version: str, candidate: str, branch: str, user: User):
+    log_line("Sending webhook")
     version_tag = "Beta" if is_beta else "Release"
     name = f"{version} {version_tag}{' ' + candidate if is_beta else ''}"
     data = {
@@ -202,12 +234,13 @@ def post_flow(is_beta: bool, version: str, candidate: str, branch: str, user: Us
 def error_flow(is_beta: bool, version: str, candidate: str, error: Exception):
     version_tag = "Beta" if is_beta else "Release"
     name = f"{version} {version_tag}{' ' + candidate if is_beta else ''}"
+    traceback_string = '\n'.join(traceback.format_exception(error, chain=True))
     data = {
         "content": None,
         "embeds": [
             {
                 "title": "Error!",
-                "description": f"Failed to build **{name}**\n```py\n{traceback.format_exception(error, limit=2)}\n```",
+                "description": f"Failed to build **{name}**\n```py\n{traceback_string}\n```",
                 "color": 5814783,
                 "fields": [],
             }
@@ -246,12 +279,20 @@ def _run_flows(
     branch: str,
     commit: str,
 ):
+    log_line("Starting release process...")
     pre_flow(is_beta, version, candidate, branch, user)
-
+    
+    log_line("Running selected flows")
     if flows["build"]:
+        log_line("Running build flow")
         build_flow(is_beta, version, candidate, commit or branch)
+    else:
+        log_line("Skipping build flow")
 
     if flows["taiga"]:
+        log_line("Running taiga flow")
         taiga_flow(is_beta, version, candidate)
+    else:
+        log_line("Skipping taiga flow")
 
     post_flow(is_beta, version, candidate, branch, user)

@@ -12,7 +12,7 @@ from flask_discord import DiscordOAuth2Session
 from flask_discord.exceptions import RateLimited
 from markdownify import markdownify as md
 
-from flows import build_lock, run_flows
+from flows import RELEASE_LOG_FILE, build_lock, run_flows
 from forms import VersionCreatorForm
 from taiga.config import (
     APP_SECRET,
@@ -172,11 +172,18 @@ def webhook_receiver():
 
 def release_creator(is_beta: bool):
     if build_lock.locked():
+        try:
+            with open(RELEASE_LOG_FILE, "r") as f:
+                text = f.read()
+        except FileNotFoundError:
+            text = ""
+
         return (
             render_template(
                 "message.html",
                 message="Another release is currently being created, please try again later...",
                 status=423,
+                logs=text
             ),
             423,
         )
@@ -187,6 +194,7 @@ def release_creator(is_beta: bool):
 def _release_creator(is_beta: bool):
     form = VersionCreatorForm()
     repo = git.Repo(REPO_PATH)
+    repo.remote().pull()
     remote_refs = repo.remote().refs
 
     branches = [branch.name for branch in remote_refs]
@@ -268,6 +276,7 @@ def list_downloads(is_beta: bool):
         else:
             releases.append(name)
 
+    releases.reverse()
     return render_template(
         "release_downloader.html", is_beta=is_beta, releases=releases, files=files
     )
