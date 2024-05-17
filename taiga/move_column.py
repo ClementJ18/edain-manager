@@ -35,8 +35,7 @@ def move_column(client: Client, old_status, new_status):
             status=status_mappings[new_status],
         )
 
-
-if __name__ == "__main__":
+def simple_move_column()
     client = Client()
     client.auth()
 

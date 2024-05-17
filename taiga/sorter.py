@@ -1,6 +1,6 @@
 import logging
 
-from utils import Client, status_mappings
+from taiga.utils import Client, status_mappings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,7 +14,7 @@ def sort_tags(story):
     
     return valid_tags[0]
 
-if __name__ == "__main__":
+def sort():
     logging.info("Starting sorting")
 
     client = Client()

@@ -25,7 +25,7 @@ def is_tested_entry(entry: dict):
     return checkbox[0]["value"]
 
 
-if __name__ == "__main__":
+def auto_move_test():
     client = Client()
     client.auth()
 
