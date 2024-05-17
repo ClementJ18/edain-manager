@@ -22,6 +22,9 @@ def sort():
 
     for status in status_mappings.values():
         stories = client.list_stories(status=status)
+        if not stories:
+            continue
+
         stories.sort(key=sort_tags)
         client.bulk_order_stories([story["id"] for story in stories], status)
     
