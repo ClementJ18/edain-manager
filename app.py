@@ -12,7 +12,7 @@ from flask_discord import DiscordOAuth2Session
 from flask_discord.exceptions import RateLimited
 from markdownify import markdownify as md
 
-from flows import RELEASE_LOG_FILE, build_lock, run_flows
+from flows import RELEASE_LOG_FILE, REPO, build_lock, run_flows
 from forms import VersionCreatorForm
 from taiga.config import (
     APP_SECRET,
@@ -60,7 +60,14 @@ def scope_locked(team_only: bool):
             try:
                 member = discord.request(f"/users/@me/guilds/{GUILD_ID}/member")
             except RateLimited:
-                return render_template("message.html", message="Currently being ratelimited, please try again later", status=429), 429
+                return (
+                    render_template(
+                        "message.html",
+                        message="Currently being ratelimited, please try again later",
+                        status=429,
+                    ),
+                    429,
+                )
 
             response = (
                 render_template(
@@ -183,7 +190,7 @@ def release_creator(is_beta: bool):
                 "message.html",
                 message="Another release is currently being created, please try again later...",
                 status=423,
-                logs=text
+                logs=text,
             ),
             423,
         )
@@ -193,16 +200,19 @@ def release_creator(is_beta: bool):
 
 def _release_creator(is_beta: bool):
     form = VersionCreatorForm()
-    repo = git.Repo(REPO_PATH)
-    repo.remote().pull()
-    remote_refs = repo.remote().refs
+    remote_refs = REPO.remote().refs
 
     branches = [branch.name for branch in remote_refs]
     form.branch_name.choices = branches
     form.branch_name.data = "origin/main"
 
     commit_dict = {
-        branch: " - ".join([x.strip() for x in itemgetter(2, 4)(repo.git.log(branch, n=1).splitlines()) ])
+        branch: " - ".join(
+            [
+                x.strip()
+                for x in itemgetter(2, 4)(REPO.git.log(branch, n=1).splitlines())
+            ]
+        )
         for branch in branches
     }
 
@@ -228,7 +238,10 @@ def _release_creator(is_beta: bool):
 
         return render_template("message.html", message=msg, status=202), 202
 
-    return render_template("release_creator.html", is_beta=is_beta, form=form, commits=commit_dict)
+    return render_template(
+        "release_creator.html", is_beta=is_beta, form=form, commits=commit_dict
+    )
+
 
 def humanize_bytes(size_bytes: int):
     if size_bytes == 0:
@@ -264,7 +277,14 @@ def list_downloads(is_beta: bool):
     response = client.list_objects(Bucket=BUCKET_NAME, Prefix=version_tag)
 
     try:
-        name_list = [(release["Key"], release["LastModified"].strftime("%Y-%m-%d %H:%M"), humanize_bytes(release["Size"])) for release in response["Contents"][1:]]
+        name_list = [
+            (
+                release["Key"],
+                release["LastModified"].strftime("%Y-%m-%d %H:%M"),
+                humanize_bytes(release["Size"]),
+            )
+            for release in response["Contents"][1:]
+        ]
     except KeyError:
         name_list = []
 
@@ -304,6 +324,23 @@ def release_create():
 @scope_locked(team_only=True)
 def release_download():
     return list_downloads(is_beta=False)
+
+
+@app.route("/bugs")
+@scope_locked(team_only=True)
+def bug_list():
+    with open("report.txt", "r") as f:
+        text = f.read()
+
+    return (
+        render_template(
+            "message.html",
+            message="See the list of fixed bugs for the latest release here",
+            status=200,
+            logs=text,
+        ),
+        200,
+    )
 
 
 if __name__ == "__main__":

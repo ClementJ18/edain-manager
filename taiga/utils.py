@@ -126,7 +126,9 @@ class Client:
             self.base_url + f"/userstories/{us_id}", headers=self.header, json=data
         )
 
-    def update_epic(self, epic_id: int, version: int, *, status: str = None, order: str = None):
+    def update_epic(
+        self, epic_id: int, version: int, *, status: str = None, order: str = None
+    ):
         data = {"version": version}
 
         if status is not None:

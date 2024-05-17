@@ -32,6 +32,9 @@ BUCKET_REGION = ""
 BUCKET_NAME = ""
 BUCKET_ENDPOINT = ""
 
+REMOTE_URL = ""
+REMOTE_PASS = ""
+
 STATUS_MAPPING = {
     "xxxxx": 000000,
 }

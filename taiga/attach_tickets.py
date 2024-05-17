@@ -7,6 +7,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
 )
 
+
 def attach_tickets():
     client = Client()
     client.auth()
