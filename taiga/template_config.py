@@ -7,8 +7,10 @@ os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = (
     "true"  # !! Only in development environment.
 )
 
-SECRET = ""
-WEBHOOK = ""
+TAIGA_URL_SECRET = ""
+TAIGA_WEBHOOK = ""
+SPACE_URL_SECRET = ""
+SPACE_WEBHOOK = ""
 
 BASE_URL = ""
 USERNAME = ""

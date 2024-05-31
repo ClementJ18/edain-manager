@@ -1,10 +1,10 @@
 import functools
+import itertools
 import logging
 import math
 from operator import itemgetter
 import threading
 
-import git
 import requests
 from boto3 import Session
 from flask import Flask, Response, redirect, render_template, request, url_for
@@ -24,12 +24,13 @@ from taiga.config import (
     CLIENT_SECRET,
     DEBUG,
     GUILD_ID,
-    REPO_PATH,
-    SECRET,
+    SPACE_URL_SECRET,
+    SPACE_WEBHOOK,
+    TAIGA_URL_SECRET,
     SPACES_KEY,
     SPACES_SECRET,
     TEAM_ROLE,
-    WEBHOOK,
+    TAIGA_WEBHOOK,
 )
 
 app = Flask(__name__)
@@ -114,8 +115,40 @@ def index():
     return render_template("message.html", message="Go away.", status=418), 418
 
 
-@app.route(f"/webhook/{SECRET}", methods=["POST"])
-def webhook_receiver():
+@app.route(f"/webhook/{SPACE_URL_SECRET}", methods=["POST"])
+def space_webhook_receiver():
+    data = request.json
+    commit = data["payload"]["commit"]
+
+    grouped_files = itertools.groupby(commit['changes']['changes'], lambda x: x['changeType'])
+    fields = []
+    for key, files in grouped_files:
+        fields.append({
+            "name": f"{key.title()} Files",
+            "value": ("\n".join([f"- `{file['new']['path']}`" for file in files]))[:1024]
+        })
+
+    data = {
+        "content": None,
+        "embeds": [
+            {
+                "title": "File List",
+                "description": f"Commit [**{commit['commit']['id']}**](<https://edain-mod.jetbrains.space/p/main/repositories/edain-mod-files/revision/{commit['commit']['id']}>) pushed to main. Message: \n >>> {commit['commit']['message']}",
+                "color": 5814783,
+                "fields": fields,
+            }
+        ],
+        "username": "Git Reporter",
+        "avatar_url": "https://git-scm.com/images/logos/downloads/Git-Icon-1788C.png",
+        "attachments": [],
+    }
+
+    response = requests.post(SPACE_WEBHOOK, json=data)
+    return Response(status=response.status_code, response=response.text)
+
+
+@app.route(f"/webhook/{TAIGA_URL_SECRET}", methods=["POST"])
+def taiga_webhook_receiver():
     data = request.json
     if data["action"] not in ["create", "change", "test"]:
         return Response(status=200, response="Skipped, incorrect action")
@@ -173,7 +206,7 @@ def webhook_receiver():
         "attachments": [],
     }
 
-    response = requests.post(WEBHOOK, json=data)
+    response = requests.post(TAIGA_WEBHOOK, json=data)
     return Response(status=response.status_code, response=response.text)
 
 
