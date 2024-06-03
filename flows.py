@@ -30,12 +30,12 @@ build_lock = threading.Lock()
 RELEASE_LOG_FILE = "release_log.txt"
 REPO = git.Repo(REPO_PATH)
 
-# try:
-#     origin = REPO.remote("origin")
-#     if origin.url != REMOTE_URL:
-#         origin.set_url(REMOTE_URL)
-# except ValueError:
-#     REPO.create_remote("origin", REMOTE_URL)
+try:
+    origin = REPO.remote("origin")
+    if origin.url != REMOTE_URL:
+        origin.set_url(REMOTE_URL)
+except ValueError:
+    REPO.create_remote("origin", REMOTE_URL)
 
 def write_string_files(data, file, columns):
     with open(file, "w+", encoding="latin-1") as f:
