@@ -257,7 +257,7 @@ def post_flow(is_beta: bool, version: str, candidate: str, branch: str, user: Us
 def error_flow(is_beta: bool, version: str, candidate: str, error: Exception):
     version_tag = "Beta" if is_beta else "Release"
     name = f"{version} {version_tag}{' ' + candidate if is_beta else ''}"
-    traceback_string = "\n".join(traceback.format_exception(error, chain=True))
+    traceback_string = "\n".join(traceback.format_exception(type(error), error, error.__traceback__, chain=True))
     data = {
         "content": None,
         "embeds": [
