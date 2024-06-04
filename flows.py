@@ -19,9 +19,9 @@ from taiga.config import (
     EPIC_STATUS_MAPPING,
     REMOTE_URL,
     REPO_PATH,
+    SPACE_WEBHOOK,
     SPACES_KEY,
     SPACES_SECRET,
-    TAIGA_WEBHOOK,
 )
 from taiga.move_column import move_column
 from taiga.utils import Client, status_mappings
@@ -58,6 +58,8 @@ def generate_bug_list(client: Client, version):
 def log_line(string):
     with open(RELEASE_LOG_FILE, "a+") as f:
         f.write(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {string}\n")
+
+    logging.info(string)
 
 
 def pre_flow(is_beta: bool, version: str, candidate: str, branch: str, user: dict):
@@ -101,7 +103,7 @@ def build_flow(is_beta: bool, version: str, candidate: str, checkout_target: str
         csv_reader = csv.DictReader(csvfile, delimiter=";")
 
         for row in csv_reader:
-            archive = pyBIG.Archive.empty()
+            archive = pyBIG.LargeArchive.empty(os.path.join(final_folder, row["Name"]))
 
             mod_path = os.path.join(REPO_PATH, row["Path"][1:])
             for content_path in row["Content"].strip().split(" "):
@@ -129,7 +131,7 @@ def build_flow(is_beta: bool, version: str, candidate: str, checkout_target: str
                                 except KeyError:
                                     pass
 
-            archive.save(os.path.join(final_folder, row["Name"]))
+            archive.save()
             log_line(f"Built {row['Name']}")
 
     # package big files together
@@ -251,7 +253,7 @@ def post_flow(is_beta: bool, version: str, candidate: str, branch: str, user: Us
         "attachments": [],
     }
 
-    requests.post(TAIGA_WEBHOOK, json=data)
+    requests.post(SPACE_WEBHOOK, json=data)
 
 
 def error_flow(is_beta: bool, version: str, candidate: str, error: Exception):
@@ -273,7 +275,7 @@ def error_flow(is_beta: bool, version: str, candidate: str, error: Exception):
     }
 
     logging.exception("Failed to build %s", name)
-    requests.post(TAIGA_WEBHOOK, json=data)
+    requests.post(SPACE_WEBHOOK, json=data)
 
 
 def run_flows(
@@ -319,3 +321,4 @@ def _run_flows(
         log_line("Skipping taiga flow")
 
     post_flow(is_beta, version, candidate, branch, user)
+    log_line("Done release process...")
