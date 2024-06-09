@@ -123,9 +123,10 @@ def space_webhook_receiver():
     grouped_files = itertools.groupby(commit['changes']['changes'], lambda x: x['changeType'])
     fields = []
     for key, files in grouped_files:
+        file_key = "old" if key == "DELETED" else "new"
         fields.append({
             "name": f"{key.title()} Files",
-            "value": ("\n".join([f"- `{file['new']['path']}`" for file in files]))[:1024]
+            "value": ("\n".join([f"- `{file[file_key]['path']}`" for file in files]))[:1024]
         })
 
     data = {
