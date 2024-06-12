@@ -52,11 +52,18 @@
                     {{ form.commit_sha.label(class_="formbold-form-label") }}
                 </div>
             </div>
-  
-            <div class="side-by-side">
+
+            <div class="formbold-input-flex">
                 <div id="content" class="formbold-form-input">
                     {{ commits["origin/main"] }}
                 </div>
+                <div id="content" class="formbold-form-input">
+                    {{ form.date(class_="formbold-form-input") }}
+                    {{ form.date.label(class_="formbold-form-label") }}
+                </div>
+            </div>
+  
+            <div class="side-by-side">
                 <div>
                     <div>
                         <label class="formbold-form-label"> Select flows to run </label>

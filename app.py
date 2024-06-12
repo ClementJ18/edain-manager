@@ -120,14 +120,20 @@ def space_webhook_receiver():
     data = request.json
     commit = data["payload"]["commit"]
 
-    grouped_files = itertools.groupby(commit['changes']['changes'], lambda x: x['changeType'])
+    grouped_files = itertools.groupby(
+        commit["changes"]["changes"], lambda x: x["changeType"]
+    )
     fields = []
     for key, files in grouped_files:
         file_key = "old" if key == "DELETED" else "new"
-        fields.append({
-            "name": f"{key.title()} Files",
-            "value": ("\n".join([f"- `{file[file_key]['path']}`" for file in files]))[:1024]
-        })
+        fields.append(
+            {
+                "name": f"{key.title()} Files",
+                "value": (
+                    "\n".join([f"- `{file[file_key]['path']}`" for file in files])
+                )[:1024],
+            }
+        )
 
     data = {
         "content": None,
@@ -233,7 +239,7 @@ def release_creator(is_beta: bool):
 
 
 def _release_creator(is_beta: bool):
-    form = VersionCreatorForm()
+    form: VersionCreatorForm = VersionCreatorForm()
     remote_refs = REPO.remote().refs
 
     branches = [branch.name for branch in remote_refs]
@@ -261,6 +267,7 @@ def _release_creator(is_beta: bool):
                 {"taiga": form.taiga_flow.data, "build": form.build_flow.data},
                 form.branch_name.data,
                 form.commit_sha.data,
+                form.date.data,
             ),
         )
         thread.start()

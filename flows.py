@@ -2,6 +2,7 @@ import csv
 import datetime
 import logging
 import os
+import pathlib
 import zipfile
 import threading
 import traceback
@@ -37,6 +38,7 @@ try:
 except ValueError:
     REPO.create_remote("origin", REMOTE_URL)
 
+
 def write_string_files(data, file, columns):
     with open(file, "w+", encoding="latin-1") as f:
         strings = [
@@ -68,8 +70,18 @@ def pre_flow(is_beta: bool, version: str, candidate: str, branch: str, user: dic
     except Exception:
         pass
 
+    final_folder = os.path.join(REPO_PATH, "final_files")
+    for file in os.listdir(final_folder):
+        os.remove(os.path.join(final_folder, file))
 
-def build_flow(is_beta: bool, version: str, candidate: str, checkout_target: str):
+
+def build_flow(
+    is_beta: bool,
+    version: str,
+    candidate: str,
+    checkout_target: str,
+    date: datetime.date,
+):
     # checkout branch and pull
     log_line(f"Checking out {checkout_target}")
     REPO.git.checkout(checkout_target)
@@ -99,6 +111,15 @@ def build_flow(is_beta: bool, version: str, candidate: str, checkout_target: str
         REPO_PATH, "tools/mod-starter/assets/final_big_builder_config.csv"
     )
     final_folder = os.path.join(REPO_PATH, "final_files")
+    session = Session()
+    client = session.client(
+        "s3",
+        region_name=BUCKET_REGION,
+        endpoint_url=f"https://{BUCKET_REGION}.digitaloceanspaces.com",
+        aws_access_key_id=SPACES_KEY,
+        aws_secret_access_key=SPACES_SECRET,
+    )
+
     with open(config, newline="") as csvfile:
         csv_reader = csv.DictReader(csvfile, delimiter=";")
 
@@ -149,15 +170,6 @@ def build_flow(is_beta: bool, version: str, candidate: str, checkout_target: str
         archive.write(asset_path, arcname="asset.dat")
 
     # upload to storage
-    session = Session()
-    client = session.client(
-        "s3",
-        region_name=BUCKET_REGION,
-        endpoint_url=f"https://{BUCKET_REGION}.digitaloceanspaces.com",
-        aws_access_key_id=SPACES_KEY,
-        aws_secret_access_key=SPACES_SECRET,
-    )
-
     client.upload_file(archive_path, BUCKET_NAME, archive_name)
     os.remove(archive_path)
 
@@ -186,6 +198,56 @@ def build_flow(is_beta: bool, version: str, candidate: str, checkout_target: str
 
     client.upload_file(asset_archive_path, BUCKET_NAME, f"{version_type}/asset.zip")
     os.remove(asset_archive_path)
+
+    build_beta_files(date, final_folder, client)
+
+
+def build_beta_files(date: datetime.date, final_folder, client):
+    if date:
+        files = REPO.git.log(
+            f'--after="{date.strftime("%Y-%m-%d")}"', '--name-only', '--format="%f"', '_mod'
+        )
+        files = set(files.splitlines())
+
+        general = []
+        english = []
+        german = []
+
+        for file in files:
+            if not os.path.exists(os.path.join(REPO_PATH, file)):
+                continue
+
+            if file.startswith("_mod/_german"):
+                german.append(file)
+            elif file.startswith("_mod/_english"):
+                english.append(file)
+            elif file.startswith("_mod"):
+                general.append(file)
+
+        log_line(f"Building beta for {general + german + english}")
+        for archive_name, file_list, index in (
+            ("!!edain_beta_german.big", german, 2),
+            ("!!edain_beta_english.big", english, 2),
+            ("!edain_beta.big", general, 1),
+        ):
+            archive_path = os.path.join(final_folder, archive_name)
+            zip_path = archive_name + "zip"
+            archive = pyBIG.LargeArchive.empty(archive_path)
+            for file in file_list:
+                print(file)
+                file_path = pathlib.Path(file)
+                with open(os.path.join(REPO_PATH, file_path), "rb") as f:
+                    archive.add_file(str(pathlib.Path(*file_path.parts[index:])), f.read())
+
+            archive.save()
+            with zipfile.ZipFile(
+                zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+            ) as zip_archive:
+                zip_archive.write(archive_path, arcname=archive_name)
+
+            client.upload_file(zip_path, BUCKET_NAME, archive_name)
+            # os.remove(archive_path)
+            os.remove(zip_path)
 
 
 def taiga_flow(is_beta: bool, version: str, candidate: str):
@@ -259,7 +321,9 @@ def post_flow(is_beta: bool, version: str, candidate: str, branch: str, user: Us
 def error_flow(is_beta: bool, version: str, candidate: str, error: Exception):
     version_tag = "Beta" if is_beta else "Release"
     name = f"{version} {version_tag}{' ' + candidate if is_beta else ''}"
-    traceback_string = "\n".join(traceback.format_exception(type(error), error, error.__traceback__, chain=True))
+    traceback_string = "\n".join(
+        traceback.format_exception(type(error), error, error.__traceback__, chain=True)
+    )
     data = {
         "content": None,
         "embeds": [
@@ -286,11 +350,12 @@ def run_flows(
     flows: dict,
     branch: str,
     commit: str,
+    date: datetime.date,
 ):
 
     with build_lock:
         try:
-            _run_flows(is_beta, version, candidate, user, flows, branch, commit)
+            _run_flows(is_beta, version, candidate, user, flows, branch, commit, date)
         except Exception as e:
             error_flow(is_beta, version, candidate, e)
 
@@ -303,6 +368,7 @@ def _run_flows(
     flows: dict,
     branch: str,
     commit: str,
+    date: datetime.date,
 ):
     log_line("Starting release process...")
     pre_flow(is_beta, version, candidate, branch, user)
@@ -310,7 +376,7 @@ def _run_flows(
     log_line("Running selected flows")
     if flows["build"]:
         log_line("Running build flow")
-        build_flow(is_beta, version, candidate, commit or branch)
+        build_flow(is_beta, version, candidate, commit or branch, date)
     else:
         log_line("Skipping build flow")
 
