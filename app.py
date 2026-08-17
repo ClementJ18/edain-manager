@@ -391,8 +391,9 @@ def too_large(error):
     return (
         render_template(
             "message.html",
-            message="That file is too large to upload "
-            f"(the limit is {humanize_bytes(patching.MAX_UPLOAD_BYTES)}).",
+            message="That upload is too large. The limit is "
+            f"{humanize_bytes(patching.MAX_UPLOAD_BYTES)} for everything sent at once, so a "
+            "submission picking patches for several binaries has to fit in that together.",
             status=413,
         ),
         413,

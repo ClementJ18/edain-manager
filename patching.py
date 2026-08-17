@@ -56,9 +56,12 @@ GAME_DAT = "game.dat"
 OUTPUT_ROOT = Path(gettempdir()) / "edain-patcher"
 OUTPUT_TTL = 1800
 
-#: The most a public endpoint will read, across every file in one submission. A ROTWK `game.dat`
-#: is ~11 MB and the other two binaries are far smaller.
-MAX_UPLOAD_BYTES = 32 * 1024 * 1024
+#: The most a public endpoint will read, across every file in one submission - Flask checks this
+#: against the whole request body, not against each file, so it has to cover a submission that
+#: picks patches for every target at once. A ROTWK `game.dat` is ~11 MB and the launcher is small,
+#: but `Worldbuilder.exe` is ~24 MB, so the three together already sit near 40 MB; the rest is
+#: headroom for a binary somebody has already grown by other means.
+MAX_UPLOAD_BYTES = 128 * 1024 * 1024
 
 #: The name a `.sagepatch` has to have where it is going: `sage_ini` and `sage_lint` look for it
 #: beside the mod's `.sagelint`, so the download is named for its destination.

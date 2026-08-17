@@ -61,6 +61,11 @@ Logs go to the journal (`journalctl -u <unit> -f`).
 **Keep `--workers 1`.** Flows are serialised by an in-process lock, so extra
 workers would let two of them move the same tickets at once.
 
+nginx needs `client_max_body_size` at least as large as `patching.MAX_UPLOAD_BYTES`
+(128M), or it returns its own 413 before Flask sees the upload — and its default is
+1M. The limit covers the whole submission rather than each file, and picking patches
+for `game.dat`, the launcher and `Worldbuilder.exe` at once sends all three (~40M).
+
 ## Notes
 
 - Flows run in a background thread, so a submission returns immediately and
