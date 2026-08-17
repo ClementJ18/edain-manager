@@ -128,6 +128,11 @@
                         <span class="mono">sage_lint</span> will check your INI against the engine
                         you actually run on instead of the stock one. Regenerate it whenever you
                         repatch: <span class="mono">sage-patch sagepatch game.dat</span>.
+                        It downloads as
+                        <span class="mono">{{ patched.binary }}.sagepatch</span> because a browser
+                        will not save a name that starts with a dot &mdash; rename it to
+                        <span class="mono">.sagepatch</span>, leading dot and nothing before it,
+                        which is the name <span class="mono">sage_lint</span> looks for.
                     </p>
                 {% endif %}
 

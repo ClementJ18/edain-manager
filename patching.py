@@ -507,6 +507,22 @@ def apply_selected(
     return PatchResult(token=token, files=patched)
 
 
+def download_name(output: Path, slug: str, sagepatch: bool) -> str:
+    """What to call `output` on the way out, which for a `.sagepatch` is not what it is called
+    where it is going.
+
+    `.sagepatch` is all extension and no basename, and that is not a name a browser will save: a
+    leading dot is stripped so that a page cannot quietly write a hidden file, so the file arrives
+    as `sagepatch` however the header asks for it. Prefixing the binary it describes gives a name
+    that survives verbatim - `game.dat.sagepatch` - and moves the correction to a rename the result
+    page asks for, rather than one the reader has to work out from a name they did not choose.
+    """
+    if not sagepatch:
+        return output.name
+
+    return f"{_BY_SLUG[slug].name}{SAGEPATCH_NAME}"
+
+
 def output_for(token: str, slug: str, sagepatch: bool = False) -> Path | None:
     """A download link's file - the patched binary, or the `.sagepatch` beside it - or None if it
     has expired.

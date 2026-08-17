@@ -370,7 +370,11 @@ def serve_patched(token: str, slug: str, sagepatch: bool):
             404,
         )
 
-    return send_file(output, as_attachment=True, download_name=output.name)
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=patching.download_name(output, slug, sagepatch),
+    )
 
 
 @app.route("/patch/download/<token>/<slug>")
