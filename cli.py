@@ -1,4 +1,5 @@
-import sys
+import argparse
+import logging
 
 from taiga.attach_tickets import attach_tickets
 from taiga.auto_move_test import auto_move_test
@@ -11,4 +12,18 @@ function_mapping = {
 }
 
 
-function_mapping[sys.argv[1]]()
+def main():
+    parser = argparse.ArgumentParser(description="Edain Taiga board maintenance tasks.")
+    parser.add_argument("command", choices=sorted(function_mapping))
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)-8s %(message)s",
+    )
+
+    function_mapping[args.command]()
+
+
+if __name__ == "__main__":
+    main()

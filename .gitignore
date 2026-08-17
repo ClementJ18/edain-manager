@@ -126,3 +126,4 @@ dmypy.json
 # project specific
 config.py
 release_log.txt
+report.txt

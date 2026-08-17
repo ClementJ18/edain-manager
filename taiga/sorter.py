@@ -2,11 +2,6 @@ import logging
 
 from taiga.utils import Client, status_mappings
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-8s %(message)s",
-)
-
 
 def sort_tags(story):
     valid_tags = [x[0] for x in story["tags"] if x[0] not in ["release", "beta"]]

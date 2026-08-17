@@ -1,13 +1,10 @@
 flask
-celery
 requests
 markdownify
 
 Flask-Discord
-pyopenssl
-GitPython
+pyopenssl  # required by app.run(ssl_context="adhoc")
 Flask-WTF
 gunicorn
-pandas
-pybig
-boto3
+
+pysage-tools @ git+https://github.com/ClementJ18/pySAGE.git

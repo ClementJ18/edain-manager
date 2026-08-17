@@ -1,0 +1,17 @@
+# Local virtualenv (~219MB) — never belongs in the image
+env/
+venv/
+ENV/
+
+__pycache__/
+*.py[cod]
+
+.git/
+.gitignore
+
+# Generated at runtime
+release_log.txt
+report.txt
+
+# Local secrets: inject via env vars / secrets at run time instead of baking in
+taiga/config.py

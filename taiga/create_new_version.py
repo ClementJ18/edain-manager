@@ -13,7 +13,8 @@ if __name__ == "__main__":
     client.auth()
 
     is_beta = sys.argv[1].lower() == "beta"
-    name = sys.argv[2:]
+    # argv[2:] is a list; create_tag posts it as form data, so it has to be a string.
+    name = " ".join(sys.argv[2:])
 
     if is_beta:
         new_status = status_mappings["in-test"]

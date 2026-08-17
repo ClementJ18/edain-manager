@@ -6,16 +6,6 @@
 {% endblock %}
 
 {% block content %}
-<script>
-    var data = {
-        {% for branch, text in commits.items() %} "{{branch}}": "{{text}}", {% endfor %}
-    };
-
-    function changeText(id) {
-        document.getElementById("content").innerText = data[id];
-    }
-</script>
-
 <div class="formbold-main-wrapper">
     <!-- Author: FormBold Team -->
     <!-- Learn More: https://formbold.com -->
@@ -24,7 +14,8 @@
         <div class="formbold-form-title">
             <h2 class="">Edain Mod Manager</h2>
                 <p>
-                Use this form to start the build process for a beta or release.
+                Use this form to prepare the Taiga board for a beta or release: the
+                current bugs epic is rotated and the tickets are moved on.
               </p>
           </div><br><br>
 
@@ -41,58 +32,19 @@
                 </div>
             {% endif %}
           </div>
-  
-            <div class="formbold-input-flex">
-                <div>
-                    {{ form.branch_name(class_="formbold-form-select", onchange="changeText(this.value);") }}
-                    {{ form.branch_name.label(class_="formbold-form-label") }}
-                </div>
-                <div>
-                    {{ form.commit_sha(class_="formbold-form-input") }}
-                    {{ form.commit_sha.label(class_="formbold-form-label") }}
-                </div>
-            </div>
 
-            <div class="formbold-input-flex">
-                <div id="content" class="formbold-form-input">
-                    {{ commits["origin/main"] }}
-                </div>
-                <div id="content" class="formbold-form-input">
-                    {{ form.date(class_="formbold-form-input") }}
-                    {{ form.date.label(class_="formbold-form-label") }}
-                </div>
-            </div>
-  
-            <div class="side-by-side">
-                <div>
-                    <div>
-                        <label class="formbold-form-label"> Select flows to run </label>
-                        <div class="formbold-checkbox-wrapper">
-                            <label class="formbold-checkbox-label" for="build_box">
-                            <div class="formbold-relative">
-                                {{ form.build_flow(class_="formbold-input-checkbox", id="build_box") }}
-                            </div>
-                            {{ form.build_flow.label.text }}
-                            </label>
-                        </div>
+          <p>
+            {% if is_beta %}
+                Tickets in <strong>fixed-internally</strong> will move to
+                <strong>in-test</strong>.
+            {% else %}
+                Tickets in <strong>awaiting-release</strong> will move to
+                <strong>done</strong>, and the fixed-bug list will be regenerated.
+            {% endif %}
+          </p>
 
-                        <div class="formbold-checkbox-wrapper">
-                            <label class="formbold-checkbox-label" for="taiga_box">
-                            <div class="formbold-relative">
-                                {{ form.taiga_flow(class_="formbold-input-checkbox", id="taiga_box") }}
-                            </div>
-                            {{ form.taiga_flow.label.text }}
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-          
-          
-          <input type="submit" class="formbold-btn" value="Create {% if not is_beta %} Release {% else %} Beta {% endif %}">
-          <a href="/{% if not is_beta %}release{% else %}beta{% endif %}/download" class="formbold-btn">Go to downloads</a>
+          <input type="submit" class="formbold-btn" value="Prepare {% if not is_beta %} Release {% else %} Beta {% endif %}">
       </form>
     </div>
   </div>
 {% endblock %}
-

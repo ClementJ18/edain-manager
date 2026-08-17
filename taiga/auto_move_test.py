@@ -1,11 +1,4 @@
-import logging
-
 from taiga.utils import Client, status_mappings
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-8s %(message)s",
-)
 
 
 def is_tested_entry(entry: dict):

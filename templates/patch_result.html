@@ -1,0 +1,175 @@
+
+{% extends 'base.html' %}
+
+{% block title %}
+    Edain Engine Patcher - Patched
+{% endblock %}
+
+{% block extra_css %}
+    .patcher-wrapper {
+      margin: 0 auto;
+      max-width: 900px;
+      width: 100%;
+      background: white;
+    }
+
+    .patched-file {
+      padding: 16px;
+      border: 1px solid #dde3ec;
+      border-radius: 5px;
+      margin-bottom: 16px;
+    }
+    .patched-file h3 {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 16px;
+      color: #07074D;
+    }
+    .patched-file ul {
+      margin: 8px 0 0 20px;
+      font-size: 14px;
+      line-height: 22px;
+      color: #536387;
+    }
+    .patched-file .formbold-btn {
+      margin-top: 16px;
+      display: inline-block;
+    }
+    .sidecar {
+      font-size: 13px;
+      line-height: 20px;
+      color: #536387;
+      margin-top: 14px;
+    }
+    .sidecar a {
+      color: #6a64f1;
+      font-weight: 600;
+    }
+    .sidecar.note {
+      padding: 10px 12px;
+      border-left: 3px solid #f2d68a;
+      background: #fffdf6;
+    }
+    .mono {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      color: #07074D;
+    }
+
+    .notice {
+      padding: 14px 16px;
+      border-radius: 5px;
+      font-size: 14px;
+      line-height: 21px;
+      margin-bottom: 18px;
+    }
+    .notice-warning {
+      background: #fff8e6;
+      border: 1px solid #f2d68a;
+      color: #6b4f00;
+    }
+    .notice-credit {
+      background: #f4f4fe;
+      border: 1px solid #cfcdfa;
+      color: #07074D;
+    }
+    .notice ul {
+      margin: 4px 0 0 20px;
+    }
+    .notice li {
+      margin-top: 4px;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    }
+
+    .muted {
+      font-size: 13px;
+      line-height: 20px;
+      color: #536387;
+    }
+{% endblock %}
+
+{% block content %}
+<div class="formbold-main-wrapper">
+    <div class="patcher-wrapper">
+        <div class="formbold-form-title">
+            <h2>{{ result.files | length }} file{{ '' if result.files | length == 1 else 's' }} patched</h2>
+            <p class="muted">
+                {{ result.credits | length }} patch(es) applied. Every download expires in
+                {{ ttl_minutes }} minutes, so save them now.
+            </p>
+        </div>
+        <br>
+
+        {% for patched in result.files %}
+            <div class="patched-file">
+                <h3>{{ patched.filename }}</h3>
+                <p class="muted">
+                    {# The binary only when the upload was named something else, so the common
+                       case does not print game.dat twice. #}
+                    {% if patched.binary != patched.filename %}{{ patched.binary }} &mdash; {% endif %}
+                    {{ humanize(patched.original_size) }} &rarr; {{ humanize(patched.patched_size) }}
+                </p>
+                <ul>
+                    {% for credit in patched.credits %}
+                        <li>{{ credit }}</li>
+                    {% endfor %}
+                </ul>
+                <a href="{{ url_for('patch_download', token=result.token, slug=patched.slug) }}"
+                   class="formbold-btn">
+                    Download {{ patched.filename }}
+                </a>
+
+                {% if patched.sagepatch %}
+                    <p class="sidecar">
+                        <a href="{{ url_for('patch_sagepatch', token=result.token, slug=patched.slug) }}">
+                            Download .sagepatch
+                        </a>
+                        &mdash; the INI surface this engine now accepts: the fields, tokens and
+                        raised limits its patches add. Commit it beside your mod's
+                        <span class="mono">.sagelint</span> and
+                        <span class="mono">sage_lint</span> will check your INI against the engine
+                        you actually run on instead of the stock one. Regenerate it whenever you
+                        repatch: <span class="mono">sage-patch sagepatch game.dat</span>.
+                    </p>
+                {% endif %}
+
+                {% for note in patched.notes %}
+                    <p class="sidecar note">{{ note }}</p>
+                {% endfor %}
+            </div>
+        {% endfor %}
+
+        <div class="patch-section">
+            <label class="formbold-form-label formbold-form-label-2">Credit these people</label>
+            <p class="muted">
+                This is the roster for what you just made &mdash; the same lines
+                <span style="font-family: monospace;">sage-patch apply</span> prints. Copy it into
+                your mod's credits, and keep it with the files if you pass them on.
+            </p>
+            <div class="notice notice-credit">
+                <ul>
+                    {% for credit in result.credits %}
+                        <li>{{ credit }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        {% if result.experimental %}
+            <div class="notice notice-warning">
+                <strong>This carries experimental patches.</strong>
+                {{ experimental_warning }}
+                <ul>
+                    {% for name in result.experimental %}
+                        <li>{{ name }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <p class="muted">
+            Your uploads have been deleted; only the patched copies are on the server, and only
+            until the downloads expire.
+            <a href="{{ url_for('patch_engine') }}">Patch something else</a>.
+        </p>
+    </div>
+</div>
+{% endblock %}

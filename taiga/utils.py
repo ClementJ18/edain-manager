@@ -6,6 +6,8 @@ from taiga.config import BASE_URL, PASSWORD, PROJECT_ID, STATUS_MAPPING, USERNAM
 
 status_mappings = STATUS_MAPPING
 
+REQUEST_TIMEOUT = 30
+
 
 def error_handler(r: requests.Response, *args, **kwargs):
     try:
@@ -13,6 +15,15 @@ def error_handler(r: requests.Response, *args, **kwargs):
     except Exception:
         logging.error(r.text)
         raise
+
+
+class TimeoutSession(requests.Session):
+    """Session that applies a default timeout, so a stalled Taiga API cannot hang
+    a request thread or a release build forever."""
+
+    def request(self, *args, **kwargs):
+        kwargs.setdefault("timeout", REQUEST_TIMEOUT)
+        return super().request(*args, **kwargs)
 
 
 class Client:
@@ -29,7 +40,7 @@ class Client:
         self.project_id = project_id
 
         self.header = None
-        self.session = requests.Session()
+        self.session = TimeoutSession()
         self.session.hooks = {"response": error_handler}
 
     def auth(self) -> dict:
@@ -42,11 +53,12 @@ class Client:
             },
         )
 
+        payload = response.json()
         self.header = {
-            "Authorization": f"Bearer {response.json()['auth_token']}",
+            "Authorization": f"Bearer {payload['auth_token']}",
             "x-disable-pagination": "True",
         }
-        return response.json()
+        return payload
 
     def get_issue_history(self, issue_id: int):
         response = self.session.get(

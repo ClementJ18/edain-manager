@@ -1,0 +1,467 @@
+
+{% extends 'base.html' %}
+
+{% macro patch_row(spec) %}
+    <div class="patch">
+        <label class="patch-head">
+            <input type="checkbox" class="formbold-input-checkbox" name="{{ spec.field }}"
+                   data-patch="{{ spec.name }}" data-author="{{ spec.credited }}"
+                   data-experimental="{{ 'true' if spec.experimental else 'false' }}"
+                   {% if resubmit and spec.field in request.form %}checked{% endif %}>
+            <span class="patch-name">{{ spec.name }}</span>
+            <span class="patch-author">{{ spec.credited }}</span>
+            <span class="patch-description">{{ spec.description }}</span>
+        </label>
+
+        {% if spec.params %}
+            <div class="patch-params">
+                {% for param in spec.params %}
+                    {% set field = spec.param_field(param) %}
+                    {% if param.kind == 'bool' %}
+                        {% set ticked = (field in request.form) if resubmit else param.default %}
+                        <div class="patch-param">
+                            <label class="formbold-checkbox-label" for="{{ field }}">
+                                <div class="formbold-relative">
+                                    <input type="checkbox" class="formbold-input-checkbox"
+                                           id="{{ field }}" name="{{ field }}"
+                                           {% if ticked %}checked{% endif %}>
+                                </div>
+                                <span>
+                                    <span class="patch-param-flag">{{ param.flag }}</span>
+                                    <span class="patch-param-help">{{ param.help }}</span>
+                                </span>
+                            </label>
+                        </div>
+                    {% else %}
+                        {% set shipped = param.default if param.default is not none else '' %}
+                        {% set value = request.form.get(field, shipped) if resubmit else shipped %}
+                        <div class="patch-param">
+                            <label for="{{ field }}">
+                                <span class="patch-param-flag">{{ param.flag }}</span>
+                                <span class="patch-param-help">{{ param.help }}</span>
+                            </label>
+                            {% if param.kind == 'choice' %}
+                                <select class="patch-param-input" id="{{ field }}" name="{{ field }}">
+                                    {% for choice in param.choices %}
+                                        <option value="{{ choice }}" {% if choice == value|string %}selected{% endif %}>{{ choice }}</option>
+                                    {% endfor %}
+                                </select>
+                            {% else %}
+                                <input type="{{ 'number' if param.kind == 'int' else 'text' }}"
+                                       class="patch-param-input" id="{{ field }}" name="{{ field }}"
+                                       value="{{ value }}" placeholder="as shipped">
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+{% endmacro %}
+
+{% macro patch_lists(target) %}
+    {% set settled = target.specs | rejectattr('experimental') | list %}
+    {% set experimental = target.specs | selectattr('experimental') | list %}
+
+    {% if settled %}
+        <div class="patch-list">
+            {% for spec in settled %}
+                {{ patch_row(spec) }}
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if experimental %}
+        <div class="experimental-block">
+            <br>
+            <div class="patch-list">
+                {% for spec in experimental %}
+                    {{ patch_row(spec) }}
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+{% endmacro %}
+
+{% block title %}
+    Edain Engine Patcher
+{% endblock %}
+
+{% block extra_css %}
+    .patcher-wrapper {
+      margin: 0 auto;
+      max-width: 900px;
+      width: 100%;
+      background: white;
+    }
+
+    .patch-section {
+      margin-top: 32px;
+    }
+
+    .patch-list {
+      border: 1px solid #dde3ec;
+      border-radius: 5px;
+    }
+    .patch {
+      padding: 12px 16px;
+      border-bottom: 1px solid #eef1f7;
+    }
+    .patch:last-child {
+      border-bottom: none;
+    }
+    .patch.selected {
+      background: #fafaff;
+    }
+    .patch-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .patch-name {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-weight: 600;
+      color: #07074D;
+      white-space: nowrap;
+    }
+    .patch-author {
+      font-size: 13px;
+      color: #6a64f1;
+      white-space: nowrap;
+    }
+    .patch-description {
+      font-size: 14px;
+      line-height: 20px;
+      color: #536387;
+    }
+
+    .patch-params {
+      display: none;
+      margin: 12px 0 4px 31px;
+      padding-left: 16px;
+      border-left: 2px solid #dde3ec;
+    }
+    .patch.selected .patch-params {
+      display: block;
+    }
+    .patch-param {
+      margin-bottom: 12px;
+    }
+    .patch-param:last-child {
+      margin-bottom: 0;
+    }
+    .patch-param-flag {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 13px;
+      color: #07074D;
+    }
+    .patch-param-help {
+      display: block;
+      font-size: 13px;
+      line-height: 19px;
+      color: #536387;
+      margin-bottom: 4px;
+    }
+    .patch-param-input {
+      max-width: 340px;
+      padding: 6px 10px;
+      border-radius: 5px;
+      border: 1px solid #dde3ec;
+      font-size: 14px;
+      color: #07074D;
+      outline: none;
+    }
+
+    .target-upload {
+      padding: 14px 16px;
+      border: 1px solid #dde3ec;
+      border-radius: 5px;
+      margin-bottom: 14px;
+    }
+    /* The engine is asked for up front; the other binaries only once a patch needs them. */
+    .target-upload.on-demand {
+      display: none;
+      border-color: #cfcdfa;
+      background: #f4f4fe;
+    }
+    .target-upload.on-demand.needed {
+      display: block;
+    }
+    .target-upload-label {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-weight: 600;
+      font-size: 14px;
+      color: #07074D;
+    }
+    .target-upload-help {
+      display: block;
+      font-size: 13px;
+      line-height: 19px;
+      color: #536387;
+      margin: 4px 0 10px 0;
+    }
+
+    .notice {
+      padding: 14px 16px;
+      border-radius: 5px;
+      font-size: 14px;
+      line-height: 21px;
+      margin-bottom: 18px;
+    }
+    .notice-warning {
+      background: #fff8e6;
+      border: 1px solid #f2d68a;
+      color: #6b4f00;
+    }
+    .notice-error {
+      background: #fdecec;
+      border: 1px solid #f0b4b4;
+      color: #8c1c1c;
+    }
+    .notice-credit {
+      background: #f4f4fe;
+      border: 1px solid #cfcdfa;
+      color: #07074D;
+    }
+    .notice ul {
+      margin: 4px 0 0 20px;
+    }
+    .notice li {
+      margin-top: 4px;
+    }
+
+    .experimental-block {
+      display: none;
+    }
+    body.show-experimental .experimental-block {
+      display: block;
+    }
+
+    .muted {
+      font-size: 13px;
+      line-height: 20px;
+      color: #536387;
+    }
+    .muted a {
+      color: #6a64f1;
+    }
+{% endblock %}
+
+{% block content %}
+<div class="formbold-main-wrapper">
+    <div class="patcher-wrapper">
+        <div class="formbold-form-title">
+            <h2>Edain Engine Patcher</h2>
+            <p class="muted">
+                Upload your ROTWK <span class="patch-param-flag">game.dat</span> (build
+                2.01.2614.37001), pick the
+                <a href="https://github.com/ClementJ18/pySAGE">pySAGE</a> patches you want, and get
+                a patched copy back. These patches are engine-level: they apply to any ROTWK
+                install of that build and benefit every mod on it. A few patches change the
+                launcher or Worldbuilder instead of the engine, and ask for that file as well when
+                you pick one. A patched engine also comes with the
+                <span class="patch-param-flag">.sagepatch</span> describing the INI it now accepts,
+                for <span class="patch-param-flag">sage_lint</span>. Your uploads are never
+                modified and are deleted as soon as they have been read; the patched copies are
+                kept for {{ ttl_minutes }} minutes so you can download them, then deleted as well.
+                Keep the unpatched originals.
+            </p>
+        </div>
+        <br>
+
+        {% if error %}
+            <div class="notice notice-error">{{ error }}</div>
+        {% endif %}
+        {% if form.errors %}
+            <div class="notice notice-error">
+                <ul>
+                    {% for field, messages in form.errors.items() %}
+                        {% for message in messages %}
+                            <li>{{ message }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data">
+            {{ form.csrf_token }}
+
+            <div class="formbold-checkbox-wrapper">
+                <label class="formbold-checkbox-label" for="show_experimental">
+                    <div class="formbold-relative">
+                        {{ form.show_experimental(class_="formbold-input-checkbox", id="show_experimental") }}
+                    </div>
+                    {{ form.show_experimental.label.text }}
+                </label>
+            </div>
+
+            <div class="experimental-block">
+                <br>
+                <div class="notice notice-warning">
+                    <strong>An experimental patch is {{ experimental_warning }}</strong>
+                </div>
+                <div class="formbold-checkbox-wrapper">
+                    <label class="formbold-checkbox-label" for="experimental_agreement">
+                        <div class="formbold-relative">
+                            {{ form.experimental_agreement(class_="formbold-input-checkbox", id="experimental_agreement") }}
+                        </div>
+                        {{ form.experimental_agreement.label.text }}
+                    </label>
+                </div>
+            </div>
+
+            {% for target in targets %}
+                <div class="patch-section" data-target="{{ target.slug }}">
+                    <label class="formbold-form-label formbold-form-label-2">
+                        {{ target.name }}
+                    </label>
+                    <p class="muted">
+                        {% if target.engine %}
+                            The engine. Tick a patch to see the options it takes; leave an option
+                            empty to get the value it ships with. Every patch verifies the bytes it
+                            is about to change, so a selection either applies in full or fails
+                            without writing a file.
+                        {% else %}
+                            Not the engine: these patches change
+                            <span class="patch-param-flag">{{ target.name }}</span>, which sits
+                            beside your game.dat. Pick one and you will be asked to upload it too.
+                        {% endif %}
+                    </p>
+                    <br>
+
+                    <div class="target-upload {{ '' if target.engine else 'on-demand' }}">
+                        <label class="target-upload-label" for="{{ target.field }}">
+                            {{ target.name }}
+                        </label>
+                        <span class="target-upload-help">
+                            {% if target.engine %}
+                                The binary to patch, read but never modified.
+                            {% else %}
+                                Needed by the patches you picked below.
+                            {% endif %}
+                        </span>
+                        <input type="file" class="formbold-form-input" accept=".dat,.exe"
+                               id="{{ target.field }}" name="{{ target.field }}">
+                    </div>
+
+                    {{ patch_lists(target) }}
+                </div>
+            {% endfor %}
+
+            <div class="patch-section">
+                <label class="formbold-form-label formbold-form-label-2">Credits required</label>
+                <p class="muted">
+                    A patch is somebody's reverse engineering before it is anybody's code, and none
+                    of that work is visible in the binary afterwards. If you ship these files,
+                    credit these people in whatever your mod uses for credits &mdash; by patch, not
+                    by package, so a build carrying three people's patches names three people
+                    &mdash; and carry the credit downstream if your mod is forked or repacked.
+                </p>
+                <div class="notice notice-credit" id="credit-box">
+                    <em>Pick a patch and the credit it requires appears here.</em>
+                </div>
+
+                <div class="formbold-checkbox-wrapper">
+                    <label class="formbold-checkbox-label" for="credit_agreement">
+                        <div class="formbold-relative">
+                            {{ form.credit_agreement(class_="formbold-input-checkbox", id="credit_agreement") }}
+                        </div>
+                        {{ form.credit_agreement.label.text }}
+                    </label>
+                </div>
+            </div>
+
+            <input type="submit" class="formbold-btn" value="Apply patches">
+        </form>
+    </div>
+</div>
+
+<script>
+    const patchBoxes = Array.from(document.querySelectorAll("input[data-patch]"));
+    const sections = Array.from(document.querySelectorAll(".patch-section[data-target]"));
+    const creditBox = document.getElementById("credit-box");
+    const showExperimental = document.getElementById("show_experimental");
+
+    function activeBoxes() {
+        return patchBoxes.filter(function (box) { return box.checked && !box.disabled; });
+    }
+
+    function refreshCredits() {
+        const byAuthor = new Map();
+        for (const box of activeBoxes()) {
+            const author = box.dataset.author;
+            if (!byAuthor.has(author)) byAuthor.set(author, []);
+            byAuthor.get(author).push(box.dataset.patch);
+        }
+
+        creditBox.innerHTML = "";
+        if (byAuthor.size === 0) {
+            const empty = document.createElement("em");
+            empty.textContent = "Pick a patch and the credit it requires appears here.";
+            creditBox.appendChild(empty);
+            return;
+        }
+
+        const list = document.createElement("ul");
+        for (const author of Array.from(byAuthor.keys()).sort()) {
+            const item = document.createElement("li");
+            item.textContent = author + " — " + byAuthor.get(author).join(", ");
+            list.appendChild(item);
+        }
+        creditBox.appendChild(list);
+    }
+
+    function refreshUploads() {
+        // Ask for a binary only once something in its section needs it. The server checks this
+        // too, so a hidden upload row is a convenience rather than the rule.
+        for (const section of sections) {
+            const upload = section.querySelector(".target-upload");
+            const wanted = Array.from(section.querySelectorAll("input[data-patch]")).some(
+                function (box) { return box.checked && !box.disabled; }
+            );
+            upload.classList.toggle("needed", wanted);
+        }
+    }
+
+    function refreshExperimental() {
+        // Hidden experimental patches are disabled as well as unticked: a checkbox that has been
+        // hidden is still submitted, and nobody should end up with an experimental patch they can
+        // no longer see they picked.
+        const shown = showExperimental.checked;
+        document.body.classList.toggle("show-experimental", shown);
+        for (const box of patchBoxes) {
+            if (box.dataset.experimental !== "true") continue;
+
+            box.disabled = !shown;
+            if (!shown) {
+                box.checked = false;
+                box.closest(".patch").classList.remove("selected");
+            }
+        }
+    }
+
+    function refresh() {
+        refreshUploads();
+        refreshCredits();
+    }
+
+    for (const box of patchBoxes) {
+        box.addEventListener("change", function () {
+            box.closest(".patch").classList.toggle("selected", box.checked);
+            refresh();
+        });
+        box.closest(".patch").classList.toggle("selected", box.checked);
+    }
+
+    showExperimental.addEventListener("change", function () {
+        refreshExperimental();
+        refresh();
+    });
+
+    refreshExperimental();
+    refresh();
+</script>
+{% endblock %}
